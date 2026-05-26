@@ -71,8 +71,11 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   bool isGameOver = false;
   int score = 0;
   int combo = 0;
-  int health = 3;
-  final int maxHealth = 3;
+
+  // Health Gauge (0.0 to 1.0)
+  double health = 1.0;
+  final double maxHealth = 1.0;
+  final double passiveDrainRate = 0.045; // Drains fully in ~22 seconds if idle
   
   // Chain variables (now using raw screen coordinates instead of targets)
   final List<Vector2> currentChainPoints = [];
@@ -233,20 +236,29 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   // Game Logic Triggered by Components
-  void triggerTargetSliced() {
+  void triggerTargetSliced(Vector2 hitPoint) {
     score += 100 + (combo * 10);
     combo++;
     shakeIntensity = min(shakeIntensity + 10.0, 25.0);
+
+    // Height-based health recharge (the higher the player goes, the more health they gain)
+    final double climb = max(0.0, player.baseY - hitPoint.y);
+    final double gain = 0.05 + 0.25 * (climb / player.baseY); // 5% base + up to 25% height bonus (max 30%)
+    
+    health = min(maxHealth, health + gain);
   }
 
   void triggerObstacleHit(Vector2 hitPos) {
     resetChain();
-    health--;
+    
+    // Flat 30% health deduction on hit
+    health -= 0.30;
     shakeIntensity = 25.0; // Strong screen shake
     
     spawnSliceParticles(hitPos, const Color(0xFFFF5500)); // Orange sparks
     
     if (health <= 0) {
+      health = 0.0;
       gameOver();
     }
   }
@@ -267,6 +279,15 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
     super.update(adjustedDt);
 
     if (!isPlaying) return;
+
+    // Passive energy decay when not dashing
+    if (!player.isDashing) {
+      health -= passiveDrainRate * adjustedDt;
+      if (health <= 0) {
+        health = 0.0;
+        gameOver();
+      }
+    }
 
     // Handle chain expiration timer (using real delta time so bullet time doesn't freeze the timer)
     if (currentChainPoints.isNotEmpty && !player.isDashing) {
@@ -393,8 +414,8 @@ class StartOverlay extends StatelessWidget {
                   Text(
                     '1. Tap ANYWHERE on the screen (up to 4 taps) to draw a path.\n'
                     '2. Entering target mode slows down time.\n'
-                    '3. Any cyan target caught near your slash path glows red and gets sliced!\n'
-                    '4. Avoid orange spiked obstacles. Getting hit or cutting them damages you.',
+                    '3. Slicing targets RECHARGES your decaying energy. Higher air slices recharge more!\n'
+                    '4. Avoid orange spiked obstacles. Hitting them stops your dash and costs 30% energy.',
                     textAlign: TextAlign.left,
                     style: TextStyle(fontSize: 14, color: Colors.white54, height: 1.5),
                   ),
@@ -525,10 +546,10 @@ class _HUDOverlayState extends State<HUDOverlay> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // HUD Header (Score & Health)
+              // HUD Header (Score & Health Gauge)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Score
                   Column(
@@ -536,26 +557,68 @@ class _HUDOverlayState extends State<HUDOverlay> {
                     children: [
                       const Text(
                         'SCORE',
-                        style: TextStyle(fontSize: 12, letterSpacing: 1.5, color: Colors.white60),
+                        style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: Colors.white60),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${widget.game.score}',
-                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                     ],
                   ),
-                  // Health (Hearts)
-                  Row(
-                    children: List.generate(widget.game.maxHealth, (index) {
-                      final bool active = index < widget.game.health;
-                      return Icon(
-                        active ? Icons.favorite : Icons.favorite_border,
-                        color: active ? const Color(0xFFFF2D55) : Colors.white24,
-                        size: 28,
-                      );
-                    }),
-                  ),
+                  // Health Gauge Bar
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'ENERGY GAUGE',
+                        style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: Colors.white54),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 180,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E2135).withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(7),
+                          border: Border.all(color: Colors.white12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          children: [
+                            // Glowing inner fill
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 100),
+                              width: 180 * widget.game.health.clamp(0.0, 1.0),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(7),
+                                gradient: LinearGradient(
+                                  colors: widget.game.health < 0.25
+                                      ? [const Color(0xFFFF0055), const Color(0xFFFF5500)]
+                                      : [const Color(0xFFFF2D55), const Color(0xFF00FFCC)],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (widget.game.health < 0.25 
+                                        ? const Color(0xFFFF0055) 
+                                        : const Color(0xFF00FFCC)).withOpacity(0.5),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
                 ],
               ),
               // HUD Footer (Combo Multiplier)

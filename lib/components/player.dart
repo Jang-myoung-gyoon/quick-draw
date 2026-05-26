@@ -10,6 +10,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
   final double _hoverSpeed = 3.0;
   final double _hoverAmplitude = 15.0;
   late double _baseY;
+  double get baseY => _baseY;
 
   // Dashing state properties
   bool isDashing = false;
@@ -222,7 +223,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
 
         if (obj is SlashTarget) {
           obj.slice(slash.hitPoint, sliceAngle);
-          game.triggerTargetSliced();
+          game.triggerTargetSliced(slash.hitPoint);
         } else if (obj is ObstacleTarget) {
           game.triggerObstacleHit(slash.hitPoint);
           obj.removeFromParent();
