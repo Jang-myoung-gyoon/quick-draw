@@ -1,16 +1,19 @@
 import 'dart:math';
 import 'package:flame/components.dart';
-import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
 
-// base class for items floating down
+// Base class for objects drifting in place (free-falling together with player)
 abstract class FloatingObject extends PositionComponent with HasGameReference<QuickDrawGame> {
-  double speed = 80.0;
   double driftTimer = 0.0;
   double driftSpeed = 1.0;
   double driftAmount = 0.5;
-  double baseSpeed = 80.0;
+  Vector2 driftDirection = Vector2.zero();
+
+  // Fade-in/out lifetime variables
+  double age = 0.0;
+  final double lifetime = 6.0;
+  double opacity = 0.0;
 
   FloatingObject() {
     anchor = Anchor.center;
@@ -20,45 +23,46 @@ abstract class FloatingObject extends PositionComponent with HasGameReference<Qu
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    driftSpeed = 0.5 + Random().nextDouble() * 1.5;
-    driftAmount = 0.2 + Random().nextDouble() * 0.8;
+    driftSpeed = 0.4 + Random().nextDouble() * 0.8;
+    driftAmount = 5.0 + Random().nextDouble() * 10.0; // drift offset amplitude
+    
+    final double angle = Random().nextDouble() * 2 * pi;
+    driftDirection = Vector2(cos(angle), sin(angle));
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     
-    // Adjust speed based on whether game background is speeding up (player is dashing)
-    final background = game.background;
-    if (background != null) {
-      if (background.currentSpeed > background.normalSpeed) {
-        // Fast scroll down (relative movement during dash)
-        position.y += (background.currentSpeed - background.normalSpeed) * dt;
-      } else {
-        // Normal falling
-        position.y += speed * dt;
-      }
+    // Update age and calculate fade opacity
+    age += dt;
+    if (age < 0.5) {
+      // Fade in (0 to 0.5 seconds)
+      opacity = age / 0.5;
+    } else if (age < 4.5) {
+      // Full opacity
+      opacity = 1.0;
+    } else if (age < lifetime) {
+      // Fade out (4.5 to 6 seconds)
+      opacity = 1.0 - (age - 4.5) / 1.5;
     } else {
-      position.y += speed * dt;
-    }
-
-    // Drift side to side slightly
-    driftTimer += dt * driftSpeed;
-    position.x += sin(driftTimer) * driftAmount;
-
-    // Remove if off-screen (bottom)
-    if (position.y > game.size.y + size.y) {
       removeFromParent();
       onMissed();
+      return;
     }
+
+    // Floating/Drifting slowly in place (relative speed is 0)
+    driftTimer += dt * driftSpeed;
+    final driftOffset = driftDirection * sin(driftTimer) * driftAmount * dt;
+    position.add(driftOffset);
   }
 
   void onMissed() {}
 }
 
-class SlashTarget extends FloatingObject with TapCallbacks {
+class SlashTarget extends FloatingObject {
   bool isTargeted = false;
-  int chainIndex = -1; // -1 if not targeted, otherwise 0, 1, 2...
+  int chainIndex = -1; // Not used for ordering anymore, but kept for highlight index
   
   final Paint _paint = Paint()..color = const Color(0xFF00E5FF);
   final Paint _targetPaint = Paint()
@@ -73,70 +77,44 @@ class SlashTarget extends FloatingObject with TapCallbacks {
     final double radius = size.x / 2;
 
     if (isTargeted) {
-      // Glow/Target ring
+      // Targeted glow ring
+      _targetPaint.color = const Color(0xFFFF2D55).withOpacity(opacity);
       canvas.drawCircle(Offset(radius, radius), radius + 8, _targetPaint);
-      
-      // Target number
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: '${chainIndex + 1}',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      textPainter.paint(
-        canvas,
-        Offset(radius - textPainter.width / 2, radius - textPainter.height / 2),
-      );
 
       // Core targeted orb
-      final targetedCorePaint = Paint()..color = const Color(0xFFFF2D55);
+      final targetedCorePaint = Paint()..color = const Color(0xFFFF2D55).withOpacity(opacity);
       canvas.drawCircle(Offset(radius, radius), radius - 6, targetedCorePaint);
     } else {
       // Neon blue glowing orb
       final glowPaint = Paint()
-        ..color = const Color(0xFF00E5FF).withOpacity(0.3)
+        ..color = const Color(0xFF00E5FF).withOpacity(opacity * 0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
       canvas.drawCircle(Offset(radius, radius), radius, glowPaint);
       
       // Core cyan orb
+      _paint.color = const Color(0xFF00E5FF).withOpacity(opacity);
       canvas.drawCircle(Offset(radius, radius), radius - 4, _paint);
 
       // Inner white highlights
-      final highlightPaint = Paint()..color = Colors.white.withOpacity(0.8);
+      final highlightPaint = Paint()..color = Colors.white.withOpacity(opacity * 0.8);
       canvas.drawCircle(Offset(radius - 4, radius - 4), 3, highlightPaint);
     }
   }
 
-  @override
-  void onTapDown(TapDownEvent event) {
-    super.onTapDown(event);
-    if (!game.isPlaying) return;
-    
-    // Add to chain if possible
-    if (!isTargeted && !game.player.isDashing) {
-      game.addToChain(this);
-    }
-  }
+  // Trigger when player slices this target at a specific intersection point
+  void slice(Vector2 hitPoint, double sliceAngle) {
+    // Create particle sparks at the hit point
+    game.spawnSliceParticles(hitPoint, const Color(0xFF00E5FF));
 
-  // Trigger when player slices this target
-  void slice(double sliceAngle) {
-    // Create particle sparks
-    game.spawnSliceParticles(position, const Color(0xFF00E5FF));
-
-    // Spawn sliced halves
+    // Spawn sliced halves starting from the hit point
     final leftHalf = SlicedHalfComponent(
-      position: position.clone(),
+      position: hitPoint.clone(),
       angle: sliceAngle,
       isLeft: true,
       color: isTargeted ? const Color(0xFFFF2D55) : const Color(0xFF00E5FF),
     );
     final rightHalf = SlicedHalfComponent(
-      position: position.clone(),
+      position: hitPoint.clone(),
       angle: sliceAngle,
       isLeft: false,
       color: isTargeted ? const Color(0xFFFF2D55) : const Color(0xFF00E5FF),
@@ -150,14 +128,14 @@ class SlashTarget extends FloatingObject with TapCallbacks {
 
   @override
   void onMissed() {
-    // If a targeted item escapes, it resets the combo
-    if (isTargeted) {
+    // If a targeted item expires without being slashed, reset chain
+    if (isTargeted && game.isPlaying) {
       game.resetChain();
     }
   }
 }
 
-class ObstacleTarget extends FloatingObject with TapCallbacks {
+class ObstacleTarget extends FloatingObject {
   final Paint _paint = Paint()..color = const Color(0xFFFF7B00);
   final Paint _glowPaint = Paint()
     ..color = const Color(0xFFFF7B00).withOpacity(0.3)
@@ -168,8 +146,7 @@ class ObstacleTarget extends FloatingObject with TapCallbacks {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    speed = 100.0; // slightly faster than targets
-    rotationSpeed = (Random().nextDouble() - 0.5) * 6.0;
+    rotationSpeed = (Random().nextDouble() - 0.5) * 4.0;
   }
 
   @override
@@ -184,9 +161,11 @@ class ObstacleTarget extends FloatingObject with TapCallbacks {
 
     final double radius = size.x / 2;
     
-    // Draw neon orange hazard spikes
+    // Draw neon orange hazard spikes with matching opacity
+    _glowPaint.color = const Color(0xFFFF7B00).withOpacity(opacity * 0.3);
     canvas.drawCircle(Offset(radius, radius), radius - 4, _glowPaint);
 
+    _paint.color = const Color(0xFFFF7B00).withOpacity(opacity);
     final Path spikePath = Path();
     final int spikeCount = 8;
     final double step = (2 * pi) / spikeCount;
@@ -212,20 +191,10 @@ class ObstacleTarget extends FloatingObject with TapCallbacks {
     canvas.drawPath(spikePath, _paint);
 
     // Inner danger core
-    final corePaint = Paint()..color = const Color(0xFF1E0E05);
+    final corePaint = Paint()..color = const Color(0xFF1E0E05).withOpacity(opacity);
     canvas.drawCircle(Offset(radius, radius), radius - 10, corePaint);
-    final coreGlow = Paint()..color = const Color(0xFFFF0055);
+    final coreGlow = Paint()..color = const Color(0xFFFF0055).withOpacity(opacity);
     canvas.drawCircle(Offset(radius, radius), 3, coreGlow);
-  }
-
-  @override
-  void onTapDown(TapDownEvent event) {
-    super.onTapDown(event);
-    if (!game.isPlaying) return;
-
-    // Tapping an obstacle causes instant damage and breaks the chain
-    game.triggerObstacleHit(position);
-    removeFromParent();
   }
 }
 
@@ -263,6 +232,7 @@ class SlicedHalfComponent extends PositionComponent {
   void update(double dt) {
     super.update(dt);
     position.add(velocity * dt);
+    
     // Gravity influence
     velocity.y += 400.0 * dt;
     this.angle += rotationSpeed * dt;

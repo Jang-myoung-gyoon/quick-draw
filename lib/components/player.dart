@@ -13,10 +13,13 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
 
   // Dashing state properties
   bool isDashing = false;
-  List<SlashTarget> _dashTargets = [];
+  List<Vector2> _dashWaypoints = [];
   int _currentTargetIndex = 0;
-  double _dashSpeed = 2500.0;
+  final double _dashSpeed = 2500.0;
   Vector2 _dashStartPos = Vector2.zero();
+
+  // Scheduled slashes along the dash path
+  final List<_ScheduledSlash> _scheduledSlashes = [];
 
   // Invulnerability and hit visual state
   double _hurtTimer = 0.0;
@@ -45,22 +48,92 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
     position = Vector2(game.size.x / 2, game.size.y - 120);
     _baseY = position.y;
     isDashing = false;
-    _dashTargets = [];
+    _dashWaypoints = [];
     _currentTargetIndex = 0;
+    _scheduledSlashes.clear();
   }
 
-  // Trigger the chain slash dash
-  void startChainDash(List<SlashTarget> targets) {
-    if (targets.isEmpty) return;
+  // Trigger the chain slash dash along waypoints
+  void startChainDash(List<Vector2> waypoints) {
+    if (waypoints.isEmpty) return;
     isDashing = true;
-    _dashTargets = List.from(targets);
+    _dashWaypoints = List.from(waypoints);
     _currentTargetIndex = 0;
     _dashStartPos = position.clone();
-    
+    _scheduledSlashes.clear();
+
+    // Pre-calculate all hits along the waypoints
+    _calculatePathIntersections();
+
     // Speed up background scrolling during dash
     final background = game.background;
     if (background != null) {
       background.currentSpeed = background.dashSpeed;
+    }
+  }
+
+  void _calculatePathIntersections() {
+    // Collect all targets and obstacles currently alive
+    final targets = game.children.whereType<SlashTarget>().toList();
+    final obstacles = game.children.whereType<ObstacleTarget>().toList();
+
+    Vector2 segmentStart = position.clone();
+    for (int i = 0; i < _dashWaypoints.length; i++) {
+      final Vector2 segmentEnd = _dashWaypoints[i];
+      final Vector2 segmentVec = segmentEnd - segmentStart;
+      final double segmentLenSq = segmentVec.length2;
+
+      if (segmentLenSq == 0) {
+        segmentStart = segmentEnd;
+        continue;
+      }
+
+      // Check targets
+      for (final target in targets) {
+        final Vector2 targetVec = target.position - segmentStart;
+        final double dot = targetVec.dot(segmentVec);
+        double t = dot / segmentLenSq;
+        t = t.clamp(0.0, 1.0);
+
+        final Vector2 projectionPoint = segmentStart + (segmentVec * t);
+        final double distance = (target.position - projectionPoint).length;
+
+        // If target is within 40px of this segment, schedule a slice
+        if (distance <= 40.0) {
+          _scheduledSlashes.add(
+            _ScheduledSlash(
+              object: target,
+              segmentIndex: i,
+              hitPoint: projectionPoint,
+              t: t,
+            ),
+          );
+        }
+      }
+
+      // Check obstacles
+      for (final obstacle in obstacles) {
+        final Vector2 obstacleVec = obstacle.position - segmentStart;
+        final double dot = obstacleVec.dot(segmentVec);
+        double t = dot / segmentLenSq;
+        t = t.clamp(0.0, 1.0);
+
+        final Vector2 projectionPoint = segmentStart + (segmentVec * t);
+        final double distance = (obstacle.position - projectionPoint).length;
+
+        if (distance <= 40.0) {
+          _scheduledSlashes.add(
+            _ScheduledSlash(
+              object: obstacle,
+              segmentIndex: i,
+              hitPoint: projectionPoint,
+              t: t,
+            ),
+          );
+        }
+      }
+
+      segmentStart = segmentEnd;
     }
   }
 
@@ -83,7 +156,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
       _updateDash(dt);
     } else {
       _updateIdle(dt);
-      _checkObstacleCollisions(dt);
+      _checkObstacleCollisions(dt); // Collision checks outside of dashing
     }
   }
 
@@ -98,43 +171,76 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
   }
 
   void _updateDash(double dt) {
-    if (_currentTargetIndex >= _dashTargets.length) {
+    if (_currentTargetIndex >= _dashWaypoints.length) {
       // Dash completed! Return to base position
       _finishDash(dt);
       return;
     }
 
-    final target = _dashTargets[_currentTargetIndex];
-    // If the target has already been removed or missed, move to next
-    if (target.parent == null) {
-      _currentTargetIndex++;
-      return;
-    }
-
-    final Vector2 direction = target.position - position;
+    final Vector2 targetPos = _dashWaypoints[_currentTargetIndex];
+    final Vector2 direction = targetPos - position;
     final double distance = direction.length;
     final double moveStep = _dashSpeed * dt;
 
     if (distance <= moveStep) {
-      // Arrived at target! Perform slice
-      position = target.position.clone();
-      
-      // Calculate slice angle (angle of dash vector)
-      final Vector2 slashVec = position - _dashStartPos;
-      final double sliceAngle = slashVec.length > 0 ? atan2(slashVec.y, slashVec.x) : 0.0;
+      // Trigger any remaining slashes on this segment that weren't triggered yet
+      _triggerSlashesOnSegment(_currentTargetIndex, 1.0);
 
-      // Slice the target
-      target.slice(sliceAngle);
-      game.triggerTargetSliced();
-
-      // Proceed to next target
+      // Arrived at waypoint! Move to next
+      position = targetPos.clone();
       _dashStartPos = position.clone();
       _currentTargetIndex++;
     } else {
-      // Move towards target
+      // Move towards waypoint
       direction.normalize();
       position.add(direction * moveStep);
+
+      // Check current progress t along this segment to trigger slices mid-flight
+      final Vector2 currentSegmentVec = targetPos - _dashStartPos;
+      final double totalLen = currentSegmentVec.length;
+      if (totalLen > 0) {
+        final double currentLen = (position - _dashStartPos).length;
+        final double t = currentLen / totalLen;
+        _triggerSlashesOnSegment(_currentTargetIndex, t);
+      }
     }
+  }
+
+  void _triggerSlashesOnSegment(int segmentIndex, double currentT) {
+    final slashes = _scheduledSlashes.where(
+      (s) => s.segmentIndex == segmentIndex && !s.isTriggered && s.t <= currentT,
+    );
+
+    for (final slash in slashes) {
+      slash.isTriggered = true;
+      final obj = slash.object;
+      
+      if (obj.parent != null) {
+        // Calculate slice angle from the segment vector
+        final Vector2 segmentVec = _dashWaypoints[segmentIndex] - _dashStartPos;
+        final double sliceAngle = segmentVec.length > 0 ? atan2(segmentVec.y, segmentVec.x) : 0.0;
+
+        if (obj is SlashTarget) {
+          obj.slice(slash.hitPoint, sliceAngle);
+          game.triggerTargetSliced();
+        } else if (obj is ObstacleTarget) {
+          game.triggerObstacleHit(slash.hitPoint);
+          obj.removeFromParent();
+          _abortDash(slash.hitPoint);
+          break; // Stop processing further slashes
+        }
+      }
+    }
+  }
+
+  void _abortDash(Vector2 hitPoint) {
+    position = hitPoint.clone();
+    _dashStartPos = position.clone();
+    for (final s in _scheduledSlashes) {
+      s.isTriggered = true;
+    }
+    _currentTargetIndex = _dashWaypoints.length;
+    _hurtTimer = 1.0; // Invulnerable flash
   }
 
   void _finishDash(double dt) {
@@ -162,18 +268,17 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
   }
 
   void _checkObstacleCollisions(double dt) {
-    if (isHurt) return; // Invulnerable while flashing red
+    if (isHurt) return;
 
-    final double collisionRadius = size.x / 2 + 12.0; // custom tight radius
+    final double collisionRadius = size.x / 2 + 12.0;
     final obstacles = game.children.whereType<ObstacleTarget>();
 
     for (final obstacle in obstacles) {
       final double distance = (obstacle.position - position).length;
       if (distance < collisionRadius) {
-        // Collided! Take damage
         game.triggerObstacleHit(obstacle.position);
         obstacle.removeFromParent();
-        _hurtTimer = 1.0; // 1 second of invulnerability/flash
+        _hurtTimer = 1.0; // Invulnerable flashing
         break;
       }
     }
@@ -184,13 +289,12 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
     super.render(canvas);
     final double radius = size.x / 2;
 
-    // Draw sword slash trail behind player
+    // Draw sword slash trail
     if (trailPoints.length > 1) {
       for (int i = 0; i < trailPoints.length - 1; i++) {
         final p1 = trailPoints[i];
         final p2 = trailPoints[i + 1];
         
-        // Convert to local coordinates relative to component position
         final offset1 = Offset(p1.x - position.x + radius, p1.y - position.y + radius);
         final offset2 = Offset(p2.x - position.x + radius, p2.y - position.y + radius);
 
@@ -204,32 +308,43 @@ class PlayerComponent extends PositionComponent with HasGameReference<QuickDrawG
       }
     }
 
-    // Determine color (flash red if hurt)
     final Color playerColor = isHurt 
         ? Colors.red 
         : (isDashing ? const Color(0xFF00FFCC) : const Color(0xFF00FF88));
 
     final Paint playerPaint = Paint()..color = playerColor;
     
-    // Draw neon glowing player shape (a diamond pointing upwards)
     final Path playerPath = Path()
-      ..moveTo(radius, 0) // top
-      ..lineTo(radius * 2, radius) // right
-      ..lineTo(radius, radius * 2) // bottom
-      ..lineTo(0, radius) // left
+      ..moveTo(radius, 0)
+      ..lineTo(radius * 2, radius)
+      ..lineTo(radius, radius * 2)
+      ..lineTo(0, radius)
       ..close();
 
-    // Draw shadow/glow
     final Paint glowPaint = Paint()
       ..color = playerColor.withOpacity(0.4)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawPath(playerPath, glowPaint);
     
-    // Draw main body
     canvas.drawPath(playerPath, playerPaint);
 
-    // Core white highlight
     final Paint corePaint = Paint()..color = Colors.white;
     canvas.drawCircle(Offset(radius, radius), 4, corePaint);
   }
+}
+
+// Helper class to schedule slices mid-dash segment
+class _ScheduledSlash {
+  final FloatingObject object;
+  final int segmentIndex;
+  final Vector2 hitPoint;
+  final double t; // parameter progress (0.0 to 1.0) along segment
+  bool isTriggered = false;
+
+  _ScheduledSlash({
+    required this.object,
+    required this.segmentIndex,
+    required this.hitPoint,
+    required this.t,
+  });
 }

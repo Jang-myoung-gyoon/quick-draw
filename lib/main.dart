@@ -74,8 +74,8 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   int health = 3;
   final int maxHealth = 3;
   
-  // Chain variables
-  final List<SlashTarget> currentChain = [];
+  // Chain variables (now using raw screen coordinates instead of targets)
+  final List<Vector2> currentChainPoints = [];
   SlashPathLine? activePathLine;
   double chainTimer = 0.0;
   final double maxChainTime = 1.5; // 1.5s to complete chain after first selection
@@ -83,18 +83,14 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   
   // Spawning variables
   double spawnTimer = 0.0;
-  double spawnInterval = 1.0;
+  double spawnInterval = 1.0; // Spawns a new item every 1 second
   final Random random = Random();
   
   // Screen shake
   double shakeIntensity = 0.0;
   
   // Slow motion factor when chaining targets (bullet time)
-  double get speedMultiplier => (currentChain.isNotEmpty && !player.isDashing) ? 0.25 : 1.0;
-
-  QuickDrawGame() {
-    // Enable debug mode or priority settings if needed
-  }
+  double get speedMultiplier => (currentChainPoints.isNotEmpty && !player.isDashing) ? 0.25 : 1.0;
 
   @override
   Future<void> onLoad() async {
@@ -110,14 +106,13 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   void startGame() {
-    // Reset state
     score = 0;
     combo = 0;
     health = maxHealth;
     isGameOver = false;
     isPlaying = true;
     
-    currentChain.clear();
+    currentChainPoints.clear();
     _removePathLine();
     
     // Clear any existing targets/obstacles
@@ -127,7 +122,6 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
     player.resetToBasePosition();
 
-    // Configure overlays
     overlays.remove('StartScreen');
     overlays.remove('GameOverScreen');
     overlays.add('HUD');
@@ -136,50 +130,98 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   void gameOver() {
     isPlaying = false;
     isGameOver = true;
-    currentChain.clear();
+    currentChainPoints.clear();
     _removePathLine();
 
     overlays.remove('HUD');
     overlays.add('GameOverScreen');
   }
 
-  // Chain Management
-  void addToChain(SlashTarget target) {
-    if (currentChain.length >= maxChainLength || player.isDashing) return;
+  // Tap anywhere on screen to record waypoints
+  @override
+  void onTapDown(TapDownEvent event) {
+    super.onTapDown(event);
+    if (!isPlaying) return;
+    
+    if (!player.isDashing) {
+      addToChain(event.localPosition);
+    }
+  }
 
-    currentChain.add(target);
-    target.isTargeted = true;
-    target.chainIndex = currentChain.length - 1;
+  // Chain Management
+  void addToChain(Vector2 tapPos) {
+    if (currentChainPoints.length >= maxChainLength || player.isDashing) return;
+
+    currentChainPoints.add(tapPos);
 
     // Reset timer on tap
     chainTimer = 0.0;
 
     // Redraw preview line
     _removePathLine();
-    activePathLine = SlashPathLine(targets: currentChain);
+    activePathLine = SlashPathLine(waypoints: currentChainPoints);
     add(activePathLine!);
 
+    // Dynamically highlight targets crossed by this path
+    _updateChainHighlighting();
+
     // Start dash immediately if chain limit reached
-    if (currentChain.length == maxChainLength) {
+    if (currentChainPoints.length == maxChainLength) {
       _executeChainSlash();
     }
   }
 
-  void _executeChainSlash() {
-    if (currentChain.isEmpty) return;
+  void _updateChainHighlighting() {
+    // Collect all active targets
+    final targets = children.whereType<SlashTarget>();
     
-    player.startChainDash(currentChain);
-    currentChain.clear();
+    // Reset all targeted states first
+    for (final target in targets) {
+      target.isTargeted = false;
+    }
+
+    if (currentChainPoints.isEmpty) return;
+
+    // Build the segments list (starting from the player position)
+    final List<Vector2> pathPoints = [player.position.clone(), ...currentChainPoints];
+
+    for (int i = 0; i < pathPoints.length - 1; i++) {
+      final Vector2 segmentStart = pathPoints[i];
+      final Vector2 segmentEnd = pathPoints[i + 1];
+      final Vector2 segmentVec = segmentEnd - segmentStart;
+      final double segmentLenSq = segmentVec.length2;
+
+      if (segmentLenSq == 0) continue;
+
+      for (final target in targets) {
+        final Vector2 targetVec = target.position - segmentStart;
+        final double dot = targetVec.dot(segmentVec);
+        double t = dot / segmentLenSq;
+        t = t.clamp(0.0, 1.0);
+
+        final Vector2 closestPoint = segmentStart + (segmentVec * t);
+        final double distance = (target.position - closestPoint).length;
+
+        // If target is within 40px of this segment, mark as targeted
+        if (distance <= 40.0) {
+          target.isTargeted = true;
+        }
+      }
+    }
+  }
+
+  void _executeChainSlash() {
+    if (currentChainPoints.isEmpty) return;
+    
+    player.startChainDash(currentChainPoints);
+    currentChainPoints.clear();
     _removePathLine();
   }
 
   void resetChain() {
-    for (final target in currentChain) {
-      target.isTargeted = false;
-      target.chainIndex = -1;
-    }
-    currentChain.clear();
+    currentChainPoints.clear();
     _removePathLine();
+    _updateChainHighlighting();
     combo = 0;
   }
 
@@ -226,15 +268,15 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
     if (!isPlaying) return;
 
-    // Handle chain expiration timer
-    if (currentChain.isNotEmpty && !player.isDashing) {
-      chainTimer += dt; // use real time for timer so bullet time doesn't freeze it
+    // Handle chain expiration timer (using real delta time so bullet time doesn't freeze the timer)
+    if (currentChainPoints.isNotEmpty && !player.isDashing) {
+      chainTimer += dt;
       if (chainTimer >= maxChainTime) {
         _executeChainSlash();
       }
     }
 
-    // Spawning logic
+    // Spawning logic (spawns items anywhere in viewport, except near the bottom player area)
     spawnTimer += adjustedDt;
     if (spawnTimer >= spawnInterval) {
       spawnTimer = 0.0;
@@ -243,18 +285,23 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   void _spawnRandomObject() {
+    // Spawn randomly across the viewport height/width, avoiding player vicinity (bottom center)
     final double xPos = 40.0 + random.nextDouble() * (size.x - 80.0);
+    final double yPos = 80.0 + random.nextDouble() * (size.y - 250.0);
     
-    // 75% target, 25% obstacle
-    if (random.nextDouble() < 0.75) {
+    // 70% target, 30% obstacle
+    if (random.nextDouble() < 0.70) {
       final target = SlashTarget()
-        ..position = Vector2(xPos, -40.0);
+        ..position = Vector2(xPos, yPos);
       add(target);
     } else {
       final obstacle = ObstacleTarget()
-        ..position = Vector2(xPos, -40.0);
+        ..position = Vector2(xPos, yPos);
       add(obstacle);
     }
+
+    // Refresh highlighting to check if new spawns overlap an active path segment
+    _updateChainHighlighting();
   }
 
   @override
@@ -275,7 +322,6 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
   @override
   KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    // No keyboard movement in final game (tap/drag focus only), handled by gesture
     return KeyEventResult.ignored;
   }
 }
@@ -345,10 +391,10 @@ class StartOverlay extends StatelessWidget {
                   ),
                   SizedBox(height: 12),
                   Text(
-                    '1. Tap 3-4 cyan targets in quick succession.\n'
-                    '2. Player enters "Slow Motion" while targeting.\n'
-                    '3. Player will dash and slice targets sequentially.\n'
-                    '4. Avoid orange obstacles (tapping or hitting them hurts!).',
+                    '1. Tap ANYWHERE on the screen (up to 4 taps) to draw a path.\n'
+                    '2. Entering target mode slows down time.\n'
+                    '3. Any cyan target caught near your slash path glows red and gets sliced!\n'
+                    '4. Avoid orange spiked obstacles. Getting hit or cutting them damages you.',
                     textAlign: TextAlign.left,
                     style: TextStyle(fontSize: 14, color: Colors.white54, height: 1.5),
                   ),

@@ -1,11 +1,11 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import 'target.dart';
 import '../main.dart';
 
 class SlashPathLine extends Component with HasGameReference<QuickDrawGame> {
-  final List<SlashTarget> targets;
+  final List<Vector2> waypoints;
+  
   final Paint _linePaint = Paint()
     ..style = PaintingStyle.stroke
     ..strokeWidth = 3.0
@@ -19,7 +19,7 @@ class SlashPathLine extends Component with HasGameReference<QuickDrawGame> {
 
   double _pulseTimer = 0.0;
 
-  SlashPathLine({required this.targets});
+  SlashPathLine({required this.waypoints});
 
   @override
   void update(double dt) {
@@ -29,17 +29,13 @@ class SlashPathLine extends Component with HasGameReference<QuickDrawGame> {
 
   @override
   void render(Canvas canvas) {
-    if (targets.length < 2) return;
-
-    // Filter out targets that might have been removed
-    final activeTargets = targets.where((t) => t.parent != null).toList();
-    if (activeTargets.length < 2) return;
+    if (waypoints.isEmpty) return;
 
     final Path path = Path();
-    path.moveTo(activeTargets[0].position.x, activeTargets[0].position.y);
+    path.moveTo(waypoints[0].x, waypoints[0].y);
     
-    for (int i = 1; i < activeTargets.length; i++) {
-      path.lineTo(activeTargets[i].position.x, activeTargets[i].position.y);
+    for (int i = 1; i < waypoints.length; i++) {
+      path.lineTo(waypoints[i].x, waypoints[i].y);
     }
 
     // Set paint width based on pulse
@@ -51,7 +47,7 @@ class SlashPathLine extends Component with HasGameReference<QuickDrawGame> {
     canvas.drawPath(path, _glowPaint);
     canvas.drawPath(path, _linePaint);
 
-    // Draw lines from player to first target if not yet dashing
+    // Draw lead line from player to first waypoint if not yet dashing
     if (!game.player.isDashing) {
       final playerPos = game.player.position;
       final leadPaint = Paint()
@@ -60,7 +56,7 @@ class SlashPathLine extends Component with HasGameReference<QuickDrawGame> {
         ..strokeWidth = 1.5;
       canvas.drawLine(
         Offset(playerPos.x, playerPos.y),
-        Offset(activeTargets[0].position.x, activeTargets[0].position.y),
+        Offset(waypoints[0].x, waypoints[0].y),
         leadPaint,
       );
     }
@@ -79,7 +75,7 @@ class SliceParticleEmitter extends Component {
   Future<void> onLoad() async {
     await super.onLoad();
     
-    // Spawn 20-30 glowing spark particles
+    // Spawn glowing spark particles
     final int count = 20 + _random.nextInt(15);
     for (int i = 0; i < count; i++) {
       final double angle = _random.nextDouble() * 2 * pi;
@@ -104,10 +100,8 @@ class SliceParticleEmitter extends Component {
       p.update(dt);
     }
     
-    // Remove completed particles
     _particles.removeWhere((p) => p.isDead);
 
-    // Remove component if all particles are dead
     if (_particles.isEmpty) {
       removeFromParent();
     }
@@ -121,7 +115,6 @@ class SliceParticleEmitter extends Component {
       final paint = Paint()
         ..color = p.color.withOpacity(p.opacity.clamp(0.0, 1.0));
       
-      // Draw neon glow for particle
       if (_random.nextDouble() > 0.5) {
         final glowPaint = Paint()
           ..color = p.color.withOpacity(p.opacity * 0.4)
@@ -160,11 +153,7 @@ class _Particle {
       opacity = 0.0;
     } else {
       position.add(velocity * dt);
-      
-      // Air drag deceleration
       velocity.multiply(Vector2.all(0.92));
-
-      // Fade out
       opacity = 1.0 - (age / lifeSpan);
     }
   }
