@@ -93,7 +93,7 @@ class _StartOverlayState extends State<StartOverlay> {
               ),
             ),
             Positioned(
-              top: 74,
+              top: 560,
               left: 34,
               right: 34,
               child: Image.asset(
