@@ -188,8 +188,10 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   double masterVolume = 1.0;
   double bgmVolume = 0.45;
   double sfxVolume = 1.0;
-  double _preMuteMasterVolume = 1.0;
-  bool get isMuted => masterVolume <= 0.0;
+  bool masterMuted = false;
+  bool bgmMuted = false;
+  bool sfxMuted = false;
+  bool get isMuted => masterMuted;
   bool get canChooseUpgrade => upgradeInputLockTimer <= 0.0;
 
   @visibleForTesting
@@ -255,8 +257,12 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   GameMusic? _currentBgmTrack;
   GameMusic? _bgmPlayingTrack;
   GameSound? lastRequestedSoundForTest;
-  double get effectiveBgmVolume => (masterVolume * bgmVolume).clamp(0.0, 1.0);
-  double get effectiveSfxVolume => (masterVolume * sfxVolume).clamp(0.0, 1.0);
+  double get effectiveBgmVolume => (masterMuted || bgmMuted)
+      ? 0.0
+      : (masterVolume * bgmVolume).clamp(0.0, 1.0);
+  double get effectiveSfxVolume => (masterMuted || sfxMuted)
+      ? 0.0
+      : (masterVolume * sfxVolume).clamp(0.0, 1.0);
   double effectiveSfxVolumeFor(GameSound sound) =>
       (effectiveSfxVolume * sound.volumeMultiplier).clamp(0.0, 1.0);
   double get displayedEnergy => (health - hiddenEnergyReserve).clamp(0.0, 1.0);

@@ -118,27 +118,6 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                             ),
                           ),
                           IconButton(
-                            key: const ValueKey('settings-mute-button'),
-                            tooltip: widget.game.isMuted
-                                ? (t.isKo ? '음소거 해제' : 'Unmute')
-                                : (t.isKo ? '음소거' : 'Mute'),
-                            onPressed: () {
-                              setState(() {
-                                widget.game.toggleMute();
-                              });
-                            },
-                            icon: Icon(
-                              widget.game.isMuted
-                                  ? Icons.volume_off
-                                  : Icons.volume_up,
-                            ),
-                            iconSize: 30,
-                            color: widget.game.isMuted
-                                ? const Color(0xFFFF2D55)
-                                : const Color(0xFF00FFCC),
-                          ),
-                          const SizedBox(width: 4),
-                          IconButton(
                             key: const ValueKey('settings-close-button'),
                             tooltip: t.close,
                             onPressed: widget.game.closeSettings,
@@ -154,7 +133,13 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                         label: t.master,
                         value: widget.game.masterVolume,
                         accentColor: const Color(0xFF00FFCC),
+                        isMuted: widget.game.masterMuted,
                         onChanged: _setMasterVolume,
+                        onMuteToggled: () {
+                          setState(() {
+                            widget.game.toggleMute();
+                          });
+                        },
                       ),
                       const SizedBox(height: 24),
                       _VolumeSlider(
@@ -162,7 +147,13 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                         label: t.bgm,
                         value: widget.game.bgmVolume,
                         accentColor: const Color(0xFFA29BFE),
+                        isMuted: widget.game.bgmMuted,
                         onChanged: _setBgmVolume,
+                        onMuteToggled: () {
+                          setState(() {
+                            widget.game.toggleBgmMute();
+                          });
+                        },
                       ),
                       const SizedBox(height: 24),
                       _VolumeSlider(
@@ -170,7 +161,13 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                         label: t.sfx,
                         value: widget.game.sfxVolume,
                         accentColor: const Color(0xFFFFD166),
+                        isMuted: widget.game.sfxMuted,
                         onChanged: _setSfxVolume,
+                        onMuteToggled: () {
+                          setState(() {
+                            widget.game.toggleSfxMute();
+                          });
+                        },
                       ),
                       const SizedBox(height: 28),
                       _LanguageSelector(
@@ -221,14 +218,18 @@ class _VolumeSlider extends StatelessWidget {
   final String label;
   final double value;
   final Color accentColor;
+  final bool isMuted;
   final ValueChanged<double> onChanged;
+  final VoidCallback onMuteToggled;
 
   const _VolumeSlider({
     super.key,
     required this.label,
     required this.value,
     required this.accentColor,
+    required this.isMuted,
     required this.onChanged,
+    required this.onMuteToggled,
   });
 
   @override
@@ -239,6 +240,15 @@ class _VolumeSlider extends StatelessWidget {
       children: [
         Row(
           children: [
+            IconButton(
+              icon: Icon(isMuted ? Icons.volume_off : Icons.volume_up),
+              color: isMuted ? const Color(0xFFFF2D55) : accentColor,
+              onPressed: onMuteToggled,
+              iconSize: 22,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 label,
@@ -246,31 +256,34 @@ class _VolumeSlider extends StatelessWidget {
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 2,
-                  color: accentColor,
+                  color: isMuted ? Colors.white54 : accentColor,
                 ),
               ),
             ),
             Text(
-              '$percent%',
-              style: const TextStyle(
+              isMuted ? 'Muted' : '$percent%',
+              style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: isMuted ? Colors.white54 : Colors.white,
               ),
             ),
           ],
         ),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: accentColor,
+            activeTrackColor: isMuted ? Colors.white24 : accentColor,
             inactiveTrackColor: Colors.white.withValues(alpha: 0.16),
-            thumbColor: Colors.white,
+            thumbColor: isMuted ? Colors.white54 : Colors.white,
             overlayColor: accentColor.withValues(alpha: 0.18),
             trackHeight: 8,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
           ),
-          child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
+          child: Slider(
+            value: value.clamp(0.0, 1.0),
+            onChanged: isMuted ? null : onChanged,
+          ),
         ),
       ],
     );

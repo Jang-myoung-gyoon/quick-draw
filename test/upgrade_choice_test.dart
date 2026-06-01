@@ -1783,7 +1783,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const ValueKey('settings-home-button')));
+    final homeButton = find.byKey(const ValueKey('settings-home-button'));
+    await tester.ensureVisible(homeButton);
+    await tester.tap(homeButton);
     await tester.pump();
 
     expect(game.isPlaying, isFalse);

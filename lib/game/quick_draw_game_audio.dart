@@ -145,11 +145,16 @@ extension QuickDrawGameAudio on QuickDrawGame {
   }
 
   void toggleMute() {
-    if (masterVolume > 0.0) {
-      _preMuteMasterVolume = masterVolume;
-      setMasterVolume(0.0);
-    } else {
-      setMasterVolume(_preMuteMasterVolume > 0.0 ? _preMuteMasterVolume : 1.0);
-    }
+    masterMuted = !masterMuted;
+    applyBgmVolume();
+  }
+
+  void toggleBgmMute() {
+    bgmMuted = !bgmMuted;
+    applyBgmVolume();
+  }
+
+  void toggleSfxMute() {
+    sfxMuted = !sfxMuted;
   }
 }
