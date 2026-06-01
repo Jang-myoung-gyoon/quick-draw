@@ -5,7 +5,12 @@ import 'package:quick_draw/components/background.dart';
 import 'package:quick_draw/components/effects.dart';
 import 'package:quick_draw/components/player.dart';
 import 'package:quick_draw/components/target.dart';
-import 'package:quick_draw/main.dart';
+import 'package:quick_draw/game/quick_draw_game.dart';
+import 'package:quick_draw/overlays/achievements_overlay.dart';
+import 'package:quick_draw/overlays/hud_overlay.dart';
+import 'package:quick_draw/overlays/settings_overlay.dart';
+import 'package:quick_draw/overlays/start_overlay.dart';
+import 'package:quick_draw/overlays/upgrade_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Achievement? findAchievement(List<Achievement> achievements, String id) {
@@ -1411,6 +1416,63 @@ void main() {
       GameSound.uiVolumePreview.assetPath,
       'elevenlabs/ui_volume_preview.mp3',
     );
+    expect(GameSound.gameOver.assetPath, 'elevenlabs/game_over.wav');
+  });
+
+  test('game over requests the game over sound effect', () {
+    final game = QuickDrawGame()..isPlaying = true;
+
+    game.gameOver();
+
+    expect(game.isGameOver, isTrue);
+    expect(game.lastRequestedSoundForTest, GameSound.gameOver);
+  });
+
+  test('starting a new game clears lingering gameplay effects', () async {
+    final game = QuickDrawGame();
+    game.onGameResize(Vector2(780, 1688));
+    game.player = PlayerComponent();
+    await game.add(game.player);
+    await game.add(EnergyShard(position: Vector2(100, 100)));
+    await game.add(
+      ExperienceShardEmitter(
+        origins: [Vector2(140, 140)],
+        burstDirection: Vector2(0, 1),
+      ),
+    );
+    await game.add(
+      LaserBeamEffect(start: Vector2(0, 0), end: Vector2(120, 120)),
+    );
+    await game.add(CriticalTextEffect(position: Vector2(200, 200)));
+    await game.add(
+      SliceParticleEmitter(
+        position: Vector2(180, 180),
+        color: const Color(0xFFFFFFFF),
+      ),
+    );
+    await game.add(
+      SlicedHalfComponent(
+        position: Vector2(180, 180),
+        angle: 0,
+        isLeft: true,
+        color: const Color(0xFFFFFFFF),
+      ),
+    );
+    game.processLifecycleEvents();
+    game.player.startChainDash([Vector2(300, 400)]);
+
+    game.startGame();
+    game.processLifecycleEvents();
+
+    expect(game.children.whereType<EnergyShard>(), isEmpty);
+    expect(game.children.whereType<ExperienceShardEmitter>(), isEmpty);
+    expect(game.children.whereType<LaserBeamEffect>(), isEmpty);
+    expect(game.children.whereType<CriticalTextEffect>(), isEmpty);
+    expect(game.children.whereType<SliceParticleEmitter>(), isEmpty);
+    expect(game.children.whereType<SlicedHalfComponent>(), isEmpty);
+    expect(game.player.isResolvingAction, isFalse);
+    expect(game.currentChainPoints, isEmpty);
+    expect(game.health, game.maxHealth);
   });
 
   testWidgets('achievements overlay renders grouped achievement progress', (

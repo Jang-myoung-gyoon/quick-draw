@@ -17,7 +17,7 @@ void playSfx(String assetPath, double volume) {
   audio.play().catchError((_) {});
 }
 
-void playBgm(String assetPath, double volume) {
+Future<void> playBgm(String assetPath, double volume) async {
   final audio = _bgm ??= html.AudioElement(_assetUrl(assetPath))
     ..loop = true
     ..preload = 'auto';
@@ -25,7 +25,11 @@ void playBgm(String assetPath, double volume) {
     ..src = _assetUrl(assetPath)
     ..loop = true
     ..volume = volume.clamp(0.0, 1.0);
-  audio.play().catchError((_) {});
+  try {
+    await audio.play();
+  } catch (e) {
+    rethrow;
+  }
 }
 
 void setBgmVolume(double volume) {

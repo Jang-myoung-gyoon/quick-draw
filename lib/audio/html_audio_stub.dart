@@ -2,7 +2,7 @@ bool get supportsHtmlAudio => false;
 
 void playSfx(String assetPath, double volume) {}
 
-void playBgm(String assetPath, double volume) {}
+Future<void> playBgm(String assetPath, double volume) async {}
 
 void setBgmVolume(double volume) {}
 

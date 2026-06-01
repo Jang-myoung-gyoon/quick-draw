@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import '../main.dart';
+import '../game/quick_draw_game.dart';
 
 enum TargetHitOutcome { ignored, damaged, sliced }
 

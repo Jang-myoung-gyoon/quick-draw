@@ -2,7 +2,7 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import '../main.dart';
+import '../game/quick_draw_game.dart';
 import 'target.dart';
 
 const List<String> _freefallFramePaths = [
@@ -129,11 +129,13 @@ class PlayerComponent extends PositionComponent
   void resetToBasePosition() {
     position = Vector2(game.size.x / 2, baseYForViewportHeight(game.size.y));
     _baseY = position.y;
+    _hoverTimer = 0.0;
     isDashing = false;
     _isScrollingBack = false;
     _isPerformingUltimate = false;
     _dashWaypoints = [];
     _currentTargetIndex = 0;
+    _dashStartPos = Vector2.zero();
     _dashProgress = 0.0;
     _dashSegmentElapsed = 0.0;
     _dashSegmentDuration = 0.0;
@@ -142,8 +144,15 @@ class PlayerComponent extends PositionComponent
     _dashPhase = _DashPhase.moving;
     _dashPauseTimer = 0.0;
     _scheduledSlashes.clear();
+    _hurtTimer = 0.0;
     _lastMovementDirection = Vector2(0, -1);
     _activeSlashDirection = Vector2(0, -1);
+    _ultimatePhase = _UltimatePhase.preScroll;
+    _ultimateTimer = 0.0;
+    _ultimateCutTriggered = false;
+    _ultimateSlashStart = Vector2.zero();
+    _ultimateSlashEnd = Vector2.zero();
+    trailPoints.clear();
   }
 
   void startUltimateSequence() {
@@ -536,7 +545,9 @@ class PlayerComponent extends PositionComponent
                     : GameSound.targetHit,
               );
               obj.hitArmor(slash.hitPoint);
-              if (game.chainStrikeUnlocked && canChainStrikeTarget(obj)) {
+              if (game.chainStrikeUnlocked &&
+                  canChainStrikeTarget(obj) &&
+                  game.random.nextDouble() < 0.5) {
                 _triggerChainStrike(obj, slash.hitPoint);
               }
               break;

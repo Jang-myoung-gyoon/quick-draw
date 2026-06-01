@@ -26,8 +26,13 @@ class FallingBackground extends PositionComponent with HasGameReference {
   Future<void> onLoad() async {
     await super.onLoad();
     size = game.size;
+    resetForNewRun();
+  }
 
-    // Initialize background particles
+  void resetForNewRun() {
+    _scrollOffset = 0.0;
+    currentSpeed = normalSpeed;
+    _particles.clear();
     for (int i = 0; i < 40; i++) {
       _particles.add(
         _BackgroundParticle(

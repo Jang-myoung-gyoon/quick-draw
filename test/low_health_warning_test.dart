@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:quick_draw/main.dart';
+import 'package:quick_draw/game/quick_draw_game.dart';
+import 'package:quick_draw/overlays/hud_overlay.dart';
 
 void main() {
   test('displayed energy hides the ten percent survival reserve', () {
