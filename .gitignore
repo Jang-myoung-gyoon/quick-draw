@@ -13,6 +13,8 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+.firebase/
+.playwright-mcp/
 
 # IntelliJ related
 *.iml

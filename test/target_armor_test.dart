@@ -5,63 +5,122 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quick_draw/components/player.dart';
 import 'package:quick_draw/components/target.dart';
+import 'package:quick_draw/main.dart';
 
 void main() {
-  test('hit count requires separate rearmed hits to slice', () {
-    final target = SlashTarget(armor: 1, requiredHits: 2);
+  test('durability requires separate rearmed hits to slice', () {
+    final target = SlashTarget(durability: 2);
     final hitPosition = Vector2(100, 100);
 
-    expect(target.armor, 1);
-    expect(target.remainingHits, 2);
+    expect(target.durability, 2);
+    expect(target.remainingDurability, 2);
     expect(target.hit(hitPosition), TargetHitOutcome.damaged);
-    expect(target.armor, 1);
-    expect(target.remainingHits, 1);
+    expect(target.remainingDurability, 1);
 
     expect(target.hit(hitPosition), TargetHitOutcome.ignored);
-    expect(target.remainingHits, 1);
+    expect(target.remainingDurability, 1);
 
     target.rearmDamageIfFarFrom(
       hitPosition + Vector2(SlashTarget.damageRearmDistance, 0),
     );
 
     expect(target.hit(hitPosition), TargetHitOutcome.sliced);
-    expect(target.armor, 1);
-    expect(target.remainingHits, 0);
+    expect(target.remainingDurability, 0);
   });
 
-  test('armor blocks independently from hit count', () {
-    final target = SlashTarget(armor: 2, requiredHits: 1);
+  test('attack power reduces durability by damage amount', () {
+    final target = SlashTarget(durability: 3);
+    final hitPosition = Vector2(100, 100);
 
-    expect(target.hit(Vector2(100, 100)), TargetHitOutcome.blocked);
-    expect(target.armor, 2);
-    expect(target.remainingHits, 1);
+    expect(target.hit(hitPosition, attackPower: 2), TargetHitOutcome.damaged);
+    expect(target.remainingDurability, 1);
+
+    target.rearmDamageIfFarFrom(
+      hitPosition + Vector2(SlashTarget.damageRearmDistance, 0),
+    );
+
+    expect(target.hit(hitPosition, attackPower: 2), TargetHitOutcome.sliced);
+    expect(target.remainingDurability, 0);
   });
 
-  test('armor and hit count are stored independently', () {
-    final target = SlashTarget(armor: 2, requiredHits: 3);
+  test('obstacles are larger with matching hit radius', () {
+    final obstacle = ObstacleTarget();
 
-    expect(target.armor, 2);
-    expect(target.remainingHits, 3);
+    expect(obstacle.size.x, 72);
+    expect(obstacle.size.y, 72);
+    expect(ObstacleTarget.collisionRadius, 60);
+  });
+
+  test('long obstacles use elongated size and matching collision radius', () {
+    final obstacle = LongObstacleTarget();
+
+    expect(obstacle.size.x, 54);
+    expect(obstacle.size.y, closeTo(LongObstacleTarget.longHeight, 0.001));
+    expect(
+      obstacle.pathCollisionRadius,
+      closeTo(LongObstacleTarget.longHeight / 2, 0.001),
+    );
+    expect(
+      obstacle.touchCollisionRadius,
+      closeTo(LongObstacleTarget.longHeight / 2, 0.001),
+    );
+  });
+
+  test('long obstacles do not rotate after spawn', () {
+    final obstacle = LongObstacleTarget();
+
+    expect(obstacle.rotationSpeed, 0.0);
   });
 
   test(
-    'cuttable targets are larger while armor-blocked hit radius stays small',
+    'laser targets have thirty percent more durability than stage maximum',
     () {
-      final cuttableTarget = SlashTarget(armor: 1, requiredHits: 1);
-      final blockedTarget = SlashTarget(armor: 2, requiredHits: 1);
+      final target = LaserTarget(maxStageDurability: 7);
 
-      expect(cuttableTarget.size.x, 72);
-      expect(cuttableTarget.size.y, 72);
-      expect(cuttableTarget.pathHitRadius, 60);
-      expect(blockedTarget.pathHitRadius, 40);
+      expect(target.durability, 10);
+      expect(LaserTarget.durabilityForStageMax(15), 20);
+      expect(LaserTarget.durabilityForStageMax(30), 20);
     },
   );
 
-  test('target color follows remaining hit count after damage', () {
-    final target = SlashTarget(armor: 1, requiredHits: 3);
+  test('laser targets grant triple experience value', () {
+    final target = LaserTarget(maxStageDurability: 7);
+
+    expect(target.experienceValue, 30);
+    expect(target.experienceValue, target.durability * 3);
+  });
+
+  test('laser targets only miss below the screen', () {
+    final game = QuickDrawGame();
+    game.onGameResize(Vector2(400, 800));
+    final target = LaserTarget(maxStageDurability: 7);
+    game.add(target);
+    game.processLifecycleEvents();
+
+    target.position = Vector2(-200, 100);
+    expect(target.shouldRemoveAsMissed(), isFalse);
+
+    target.position = Vector2(200, 900);
+    expect(target.shouldRemoveAsMissed(), isTrue);
+  });
+
+  test('targets use the same path hit radius regardless of durability', () {
+    final weakTarget = SlashTarget(durability: 1);
+    final strongTarget = SlashTarget(durability: 4);
+
+    expect(weakTarget.size.x, 72);
+    expect(weakTarget.size.y, 72);
+    expect(weakTarget.pathHitRadius, 60);
+    expect(strongTarget.pathHitRadius, 60);
+  });
+
+  test('target color follows hits required by current attack power', () {
+    final target = SlashTarget(durability: 3);
     final hitPosition = Vector2(100, 100);
 
     expect(target.coreColor, const Color(0xFFA855F7));
+    expect(target.coreColorForAttackPower(2), const Color(0xFFFF335F));
+    expect(target.coreColorForAttackPower(3), const Color(0xFF00E5FF));
 
     expect(target.hit(hitPosition), TargetHitOutcome.damaged);
     expect(target.coreColor, const Color(0xFFFF335F));
@@ -138,5 +197,13 @@ void main() {
     target.advanceChainStrikeMove(0.1);
     expect(target.isChainStrikeMoving, isFalse);
     expect(target.position, destination);
+  });
+
+  test('chain strike cannot bounce laser attack targets', () {
+    expect(PlayerComponent.canChainStrikeTarget(SlashTarget()), isTrue);
+    expect(
+      PlayerComponent.canChainStrikeTarget(LaserTarget(maxStageDurability: 7)),
+      isFalse,
+    );
   });
 }

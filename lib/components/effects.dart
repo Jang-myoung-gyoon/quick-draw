@@ -157,6 +157,10 @@ class ExperienceShardEmitter extends Component
   static const double duration = 0.9;
   static const double _burstPhase = 0.28;
 
+  @visibleForTesting
+  List<Vector2> get shardPositionsForTest =>
+      _positions.map((position) => position.clone()).toList(growable: false);
+
   ExperienceShardEmitter({
     required this.origins,
     required this.burstDirection,
@@ -185,10 +189,12 @@ class ExperienceShardEmitter extends Component
     if (_completed) {
       return;
     }
+    if (game.isChoosingUpgrade) {
+      return;
+    }
 
     _timer += dt;
     final progress = (_timer / duration).clamp(0.0, 1.0);
-    final eased = pow(progress, 2.8).toDouble();
     final target = game.player.position.clone();
 
     for (var i = 0; i < _positions.length; i++) {
@@ -199,25 +205,32 @@ class ExperienceShardEmitter extends Component
       final burstEase = 1.0 - pow(1.0 - burstProgress, 3).toDouble();
       final followProgress = ((progress - _burstPhase) / (1.0 - _burstPhase))
           .clamp(0.0, 1.0);
-      final followEase = pow(followProgress, 2.4).toDouble();
       final swirl = Vector2(
         cos(progress * pi * 4 + _offsetSeeds[i]) * 26.0 * (1.0 - progress),
         sin(progress * pi * 3 + _offsetSeeds[i]) * 18.0 * (1.0 - progress),
       );
       final outwardPosition = origin + _burstVectors[i] * burstEase;
-      final chaseStart = burstProgress < 1.0 ? outwardPosition : burstEnd;
       final arc = Vector2(0, -36.0 * sin(followProgress * pi));
-      _positions[i] =
-          chaseStart + (target - chaseStart) * eased * followEase + arc + swirl;
+      if (progress <= _burstPhase) {
+        _positions[i] = outwardPosition;
+      } else {
+        final chaseEase = pow(followProgress, 1.35).toDouble();
+        _positions[i] =
+            burstEnd + (target - burstEnd) * chaseEase + arc + swirl;
+      }
     }
 
     if (progress >= 1.0) {
       _completed = true;
+      game.playSound(GameSound.experienceShardAbsorb);
       removeFromParent();
     }
   }
 
   void applyCameraShift(Vector2 delta) {
+    if (game.isChoosingUpgrade) {
+      return;
+    }
     for (final origin in origins) {
       origin.add(delta);
     }
@@ -257,6 +270,150 @@ class ExperienceShardEmitter extends Component
         ..close();
       canvas.drawPath(path, _paint);
     }
+  }
+}
+
+class CriticalTextEffect extends Component {
+  Vector2 position;
+  double _timer = 0.0;
+
+  static const double duration = 0.8;
+
+  CriticalTextEffect({required this.position});
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _timer += dt;
+    position.y -= 42.0 * dt;
+    if (_timer >= duration) {
+      removeFromParent();
+    }
+  }
+
+  void applyCameraShift(Vector2 delta) {
+    position.add(delta);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    final progress = (_timer / duration).clamp(0.0, 1.0);
+    final opacity = (1.0 - progress).clamp(0.0, 1.0);
+    final scale = 1.0 + sin(progress * pi) * 0.18;
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: 'CRITICAL!',
+        style: TextStyle(
+          color: const Color(0xFFFF1744).withValues(alpha: opacity),
+          fontSize: 28 * scale,
+          fontWeight: FontWeight.w900,
+          shadows: [
+            Shadow(
+              color: Colors.black.withValues(alpha: opacity * 0.8),
+              blurRadius: 6,
+            ),
+            Shadow(
+              color: const Color(0xFFFF1744).withValues(alpha: opacity * 0.6),
+              blurRadius: 14,
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    textPainter.paint(
+      canvas,
+      Offset(position.x - textPainter.width / 2, position.y - 44),
+    );
+  }
+}
+
+class LaserBeamEffect extends Component {
+  Vector2 start;
+  Vector2 end;
+  double _timer = 0.0;
+
+  static const double duration = 0.45;
+
+  LaserBeamEffect({required this.start, required this.end});
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _timer += dt;
+    if (_timer >= duration) {
+      removeFromParent();
+    }
+  }
+
+  void applyCameraShift(Vector2 delta) {
+    start.add(delta);
+    end.add(delta);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    final progress = (_timer / duration).clamp(0.0, 1.0);
+    final opacity = (1.0 - progress).clamp(0.0, 1.0);
+    final pulse = sin(progress * pi);
+    final outerPaint = Paint()
+      ..color = const Color(0xFFFF1744).withValues(alpha: opacity * 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 18.0 + pulse * 8.0
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    final corePaint = Paint()
+      ..color = Colors.white.withValues(alpha: opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0 + pulse * 3.0
+      ..strokeCap = StrokeCap.round;
+    final redPaint = Paint()
+      ..color = const Color(0xFFFF1744).withValues(alpha: opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8.0 + pulse * 4.0
+      ..strokeCap = StrokeCap.round;
+
+    final startOffset = Offset(start.x, start.y);
+    final endOffset = Offset(end.x, end.y);
+    canvas.drawLine(startOffset, endOffset, outerPaint);
+    canvas.drawLine(startOffset, endOffset, redPaint);
+    canvas.drawLine(startOffset, endOffset, corePaint);
+
+    final impactPaint = Paint()
+      ..color = const Color(0xFFFF1744).withValues(alpha: opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0 + pulse * 5.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    canvas.drawCircle(endOffset, 18.0 + pulse * 28.0, impactPaint);
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: 'LASER HIT!',
+        style: TextStyle(
+          color: const Color(0xFFFF1744).withValues(alpha: opacity),
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+          shadows: [
+            Shadow(
+              color: Colors.black.withValues(alpha: opacity * 0.9),
+              blurRadius: 5,
+            ),
+            Shadow(
+              color: const Color(0xFFFF1744).withValues(alpha: opacity * 0.7),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(
+      canvas,
+      Offset(end.x - textPainter.width / 2, end.y - 62),
+    );
   }
 }
 

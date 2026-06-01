@@ -36,11 +36,14 @@ class PlayerComponent extends PositionComponent
   bool isDashing = false;
   List<Vector2> _dashWaypoints = [];
   int _currentTargetIndex = 0;
-  final double _dashSpeed = 4300.0;
+  static const double dashSpeed = 5590.0;
   Vector2 _dashStartPos = Vector2.zero();
   double _dashProgress = 0.0;
+  double _dashSegmentElapsed = 0.0;
+  double _dashSegmentDuration = 0.0;
   bool _dashFacingLeft = false;
   bool _chainFacingLeft = false;
+  Vector2 _activeSlashDirection = Vector2(0, -1);
   _DashPhase _dashPhase = _DashPhase.moving;
   double _dashPauseTimer = 0.0;
   static const double _dashStartPause = 0.18;
@@ -57,6 +60,8 @@ class PlayerComponent extends PositionComponent
   bool _isScrollingBack = false;
   bool _isPerformingUltimate = false;
   bool get isPerformingUltimate => _isPerformingUltimate;
+  bool get isResolvingAction =>
+      isDashing || _isPerformingUltimate || _isScrollingBack;
   Vector2 _lastMovementDirection = Vector2(0, -1);
   Vector2 get experienceShardBurstDirection => _lastMovementDirection.clone();
   _UltimatePhase _ultimatePhase = _UltimatePhase.preScroll;
@@ -79,7 +84,7 @@ class PlayerComponent extends PositionComponent
   static const double _frameDuration = 0.09;
   static const Size _spriteDrawSize = Size(96, 170);
   static const Size _battoujutsuDrawSize = Size(144, 216);
-  static const double _baseBottomInset = 220.0;
+  static const double _baseViewportHeightFactor = 2 / 3;
 
   final Paint _trailPaint = Paint()
     ..style = PaintingStyle.stroke
@@ -114,8 +119,12 @@ class PlayerComponent extends PositionComponent
     resetToBasePosition();
   }
 
+  static double baseYForViewportHeight(double height) {
+    return height * _baseViewportHeightFactor;
+  }
+
   void resetToBasePosition() {
-    position = Vector2(game.size.x / 2, game.size.y - _baseBottomInset);
+    position = Vector2(game.size.x / 2, baseYForViewportHeight(game.size.y));
     _baseY = position.y;
     isDashing = false;
     _isScrollingBack = false;
@@ -123,12 +132,15 @@ class PlayerComponent extends PositionComponent
     _dashWaypoints = [];
     _currentTargetIndex = 0;
     _dashProgress = 0.0;
+    _dashSegmentElapsed = 0.0;
+    _dashSegmentDuration = 0.0;
     _dashFacingLeft = false;
     _chainFacingLeft = false;
     _dashPhase = _DashPhase.moving;
     _dashPauseTimer = 0.0;
     _scheduledSlashes.clear();
     _lastMovementDirection = Vector2(0, -1);
+    _activeSlashDirection = Vector2(0, -1);
   }
 
   void startUltimateSequence() {
@@ -140,6 +152,7 @@ class PlayerComponent extends PositionComponent
     _ultimateCutTriggered = false;
     _ultimateSlashStart = position.clone();
     _ultimateSlashEnd = Vector2(position.x, -80);
+    _activeSlashDirection = Vector2(0, -1);
     _dashWaypoints = [];
     _currentTargetIndex = 0;
     _dashProgress = 0.0;
@@ -161,6 +174,7 @@ class PlayerComponent extends PositionComponent
     _currentTargetIndex = 0;
     _dashStartPos = position.clone();
     _dashProgress = 0.0;
+    _beginDashSegment();
     _updateDashDirectionAngle();
     _dashPhase = _DashPhase.windup;
     _dashPauseTimer = _dashStartPause;
@@ -168,12 +182,6 @@ class PlayerComponent extends PositionComponent
 
     // Pre-calculate all hits along the waypoints
     _calculatePathIntersections();
-
-    // Speed up background scrolling during dash
-    final background = game.background;
-    if (background != null) {
-      background.currentSpeed = background.dashSpeed;
-    }
   }
 
   void lockChainDirection(Vector2 firstWaypoint) {
@@ -185,6 +193,20 @@ class PlayerComponent extends PositionComponent
   static bool shouldFlipBattoujutsuSpriteForDirection(Vector2 direction) {
     // The generated battoujutsu sprites face left by default.
     return direction.x > 0;
+  }
+
+  @visibleForTesting
+  static double dashSegmentDurationForDistance(double distance) {
+    return max(0.0, distance) / dashSpeed;
+  }
+
+  @visibleForTesting
+  static double dashMotionEase(double progress) {
+    final t = progress.clamp(0.0, 1.0);
+    if (t < 0.5) {
+      return 4.0 * t * t * t;
+    }
+    return 1.0 - pow(-2.0 * t + 2.0, 3).toDouble() / 2.0;
   }
 
   void _calculatePathIntersections() {
@@ -235,7 +257,7 @@ class PlayerComponent extends PositionComponent
         final Vector2 projectionPoint = segmentStart + (segmentVec * t);
         final double distance = (obstacle.position - projectionPoint).length;
 
-        if (distance <= 40.0) {
+        if (distance <= obstacle.pathCollisionRadius) {
           _scheduledSlashes.add(
             _ScheduledSlash(
               object: obstacle,
@@ -347,18 +369,43 @@ class PlayerComponent extends PositionComponent
     }
 
     final Vector2 targetPos = _dashWaypoints[_currentTargetIndex];
-    final Vector2 direction = targetPos - position;
-    final double distance = direction.length;
-    final double moveStep = _dashSpeed * dt;
+    final Vector2 segmentVec = targetPos - _dashStartPos;
+    final double segmentLength = segmentVec.length;
     final previousPosition = position.clone();
-    _dashFacingLeft = shouldFlipBattoujutsuSpriteForDirection(direction);
+    if (segmentVec.length2 > 0) {
+      _dashFacingLeft = shouldFlipBattoujutsuSpriteForDirection(segmentVec);
+      _activeSlashDirection = segmentVec.normalized();
+    }
 
-    if (distance <= moveStep) {
-      // Arrived at waypoint! Move to next
-      game.addLightfootDistance(distance);
+    if (segmentLength <= 0.0 || _dashSegmentDuration <= 0.0) {
       position = targetPos.clone();
-      _rememberMovementDirection(position - previousPosition);
+      _dashProgress = 1.0;
+      _triggerSlashesOnSegment(_currentTargetIndex, 1.0);
+      _dashPhase = _DashPhase.recovery;
+      _dashPauseTimer = _dashEndPause;
+      return;
+    }
+
+    _dashSegmentElapsed = min(_dashSegmentDuration, _dashSegmentElapsed + dt);
+    final rawProgress = (_dashSegmentElapsed / _dashSegmentDuration).clamp(
+      0.0,
+      1.0,
+    );
+    final easedProgress = dashMotionEase(rawProgress);
+    position = _dashStartPos + segmentVec * easedProgress;
+    final movementDelta = position - previousPosition;
+    if (movementDelta.length2 > 0) {
+      _rememberMovementDirection(movementDelta);
+      game.addLightfootDistance(movementDelta.length);
       _collectBonusAlongMovement(previousPosition, position);
+    }
+
+    _dashProgress = easedProgress;
+    _triggerSlashesOnSegment(_currentTargetIndex, easedProgress);
+
+    if (rawProgress >= 1.0) {
+      // Arrived at waypoint! Move to next
+      position = targetPos.clone();
 
       // Trigger any remaining slashes on this segment that weren't triggered yet
       _triggerSlashesOnSegment(_currentTargetIndex, 1.0);
@@ -366,23 +413,6 @@ class PlayerComponent extends PositionComponent
       _dashProgress = 1.0;
       _dashPhase = _DashPhase.recovery;
       _dashPauseTimer = _dashEndPause;
-    } else {
-      // Move towards waypoint
-      direction.normalize();
-      position.add(direction * moveStep);
-      _rememberMovementDirection(direction);
-      game.addLightfootDistance(moveStep);
-      _collectBonusAlongMovement(previousPosition, position);
-
-      // Check current progress t along this segment to trigger slices mid-flight
-      final Vector2 currentSegmentVec = targetPos - _dashStartPos;
-      final double totalLen = currentSegmentVec.length;
-      if (totalLen > 0) {
-        final double currentLen = (position - _dashStartPos).length;
-        final double t = currentLen / totalLen;
-        _dashProgress = t.clamp(0.0, 1.0);
-        _triggerSlashesOnSegment(_currentTargetIndex, t);
-      }
     }
   }
 
@@ -390,6 +420,7 @@ class PlayerComponent extends PositionComponent
     _currentTargetIndex++;
     _dashStartPos = position.clone();
     _dashProgress = 0.0;
+    _dashSegmentElapsed = 0.0;
 
     if (_currentTargetIndex >= _dashWaypoints.length) {
       _startScrollBack();
@@ -397,8 +428,20 @@ class PlayerComponent extends PositionComponent
     }
 
     _updateDashDirectionAngle();
+    _beginDashSegment();
     _dashPhase = _DashPhase.windup;
     _dashPauseTimer = _dashStartPause;
+  }
+
+  void _beginDashSegment() {
+    if (_currentTargetIndex >= _dashWaypoints.length) {
+      _dashSegmentDuration = 0.0;
+      return;
+    }
+    final distance =
+        (_dashWaypoints[_currentTargetIndex] - _dashStartPos).length;
+    _dashSegmentElapsed = 0.0;
+    _dashSegmentDuration = dashSegmentDurationForDistance(distance);
   }
 
   void _updateDashDirectionAngle() {
@@ -407,6 +450,7 @@ class PlayerComponent extends PositionComponent
     final direction = _dashWaypoints[_currentTargetIndex] - position;
     if (direction.length2 > 0) {
       _dashFacingLeft = shouldFlipBattoujutsuSpriteForDirection(direction);
+      _activeSlashDirection = direction.normalized();
     }
   }
 
@@ -431,19 +475,10 @@ class PlayerComponent extends PositionComponent
     final targetPosition = Vector2(game.size.x / 2, _baseY);
     final toTarget = targetPosition - position;
 
-    // Slow down background speed back to normal
-    final background = game.background;
-    if (background != null) {
-      background.currentSpeed +=
-          (background.normalSpeed - background.currentSpeed) * 8.0 * dt;
-    }
-
     if (toTarget.length <= 1.0) {
       position = targetPosition;
       _isScrollingBack = false;
-      if (background != null) {
-        background.currentSpeed = background.normalSpeed;
-      }
+      game.resolvePendingLaserAttacks();
       return;
     }
 
@@ -482,22 +517,24 @@ class PlayerComponent extends PositionComponent
             : 0.0;
 
         if (obj is SlashTarget) {
-          switch (obj.hit(position, attackPower: game.playerAttackPower)) {
+          final damageRoll = game.rollSlashDamage();
+          if (damageRoll.isCritical) {
+            game.triggerCriticalHit(slash.hitPoint);
+          }
+          switch (obj.hit(position, attackPower: damageRoll.damage)) {
             case TargetHitOutcome.sliced:
               obj.slice(slash.hitPoint, sliceAngle);
               game.triggerTargetSliced(slash.hitPoint, target: obj);
               break;
             case TargetHitOutcome.damaged:
+              game.playSound(
+                obj is LaserTarget
+                    ? GameSound.laserAttack
+                    : GameSound.targetHit,
+              );
               obj.hitArmor(slash.hitPoint);
-              if (game.chainStrikeUnlocked) {
+              if (game.chainStrikeUnlocked && canChainStrikeTarget(obj)) {
                 _triggerChainStrike(obj, slash.hitPoint);
-              }
-              break;
-            case TargetHitOutcome.blocked:
-              obj.hitArmor(slash.hitPoint);
-              final blockedByShield = game.triggerObstacleHit(slash.hitPoint);
-              if (!blockedByShield) {
-                _abortDash(slash.hitPoint);
               }
               break;
             case TargetHitOutcome.ignored:
@@ -514,6 +551,10 @@ class PlayerComponent extends PositionComponent
       }
     }
   }
+
+  @visibleForTesting
+  static bool canChainStrikeTarget(SlashTarget target) =>
+      target is! LaserTarget;
 
   void _triggerChainStrike(SlashTarget target, Vector2 hitPoint) {
     final nextSegmentIndex = _currentTargetIndex + 1;
@@ -606,10 +647,20 @@ class PlayerComponent extends PositionComponent
       }
     }
 
+    final energyShards = game.children.whereType<EnergyShard>().toList();
+    for (final shard in energyShards) {
+      final double distance = (shard.position - position).length;
+      if (distance < collisionRadius + EnergyShard.collectRadius) {
+        shard.removeFromParent();
+        game.triggerEnergyShardCollected(shard.position);
+        return;
+      }
+    }
+
     final obstacles = game.children.whereType<ObstacleTarget>().toList();
     for (final obstacle in obstacles) {
       final double distance = (obstacle.position - position).length;
-      if (distance < collisionRadius) {
+      if (distance < collisionRadius + obstacle.touchCollisionRadius) {
         final blockedByShield = game.triggerObstacleHit(obstacle.position);
         obstacle.removeFromParent();
         if (!blockedByShield) {
@@ -635,6 +686,20 @@ class PlayerComponent extends PositionComponent
         bonus.removeFromParent();
         game.triggerBonusCollected(bonus.position);
         return;
+      }
+    }
+
+    final energyShards = game.children.whereType<EnergyShard>().toList();
+    for (final shard in energyShards) {
+      final touchRadius = collisionRadius + EnergyShard.collectRadius;
+      if (movementTouchesBonus(
+        start: start,
+        end: end,
+        bonusPosition: shard.position,
+        radius: touchRadius,
+      )) {
+        shard.removeFromParent();
+        game.triggerEnergyShardCollected(shard.position);
       }
     }
   }
@@ -721,20 +786,20 @@ class PlayerComponent extends PositionComponent
               _dashProgress < 0.42)
           ? _battoujutsuStartImage!
           : _battoujutsuEndImage!;
-      if (game.shadowCloneLevel > 0) {
-        final cloneOffset = 42.0 + game.shadowCloneLevel * 18.0;
-        for (final dx in [-cloneOffset, cloneOffset]) {
-          _drawSpriteImage(
-            canvas: canvas,
-            image: image,
-            center: Offset(radius + dx, radius),
-            drawSize: _battoujutsuDrawSize,
-            rotation: 0.0,
-            flipX: _dashFacingLeft,
-            isDashingTinted: true,
-            opacity: 0.36,
-          );
-        }
+      for (final offset in shadowCloneOffsetsForDirection(
+        game.shadowCloneLevel,
+        _activeSlashDirection,
+      )) {
+        _drawSpriteImage(
+          canvas: canvas,
+          image: image,
+          center: Offset(radius + offset.x, radius + offset.y),
+          drawSize: _battoujutsuDrawSize,
+          rotation: 0.0,
+          flipX: _dashFacingLeft,
+          isDashingTinted: true,
+          opacity: 0.36,
+        );
       }
       _drawSpriteImage(
         canvas: canvas,
@@ -759,6 +824,37 @@ class PlayerComponent extends PositionComponent
       flipX: false,
       isDashingTinted: false,
     );
+  }
+
+  @visibleForTesting
+  static List<double> shadowCloneOffsetsForLevel(int level) {
+    return shadowCloneOffsetsForDirection(
+      level,
+      Vector2(0, -1),
+    ).map((offset) => offset.x).toList(growable: false);
+  }
+
+  @visibleForTesting
+  static List<Vector2> shadowCloneOffsetsForDirection(
+    int level,
+    Vector2 direction,
+  ) {
+    const spacing = 60.0;
+    final clampedLevel = level.clamp(0, 4);
+    var slashDirection = direction.clone();
+    if (slashDirection.length2 == 0) {
+      slashDirection = Vector2(0, -1);
+    } else {
+      slashDirection.normalize();
+    }
+    final rightNormal = Vector2(-slashDirection.y, slashDirection.x);
+    final offsets = <Vector2>[];
+    for (var i = 0; i < clampedLevel; i++) {
+      final side = i.isEven ? 1.0 : -1.0;
+      final rank = i ~/ 2 + 1;
+      offsets.add(rightNormal * (side * spacing * rank));
+    }
+    return offsets;
   }
 
   void _drawShieldAura(Canvas canvas, Offset center) {

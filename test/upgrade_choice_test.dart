@@ -1,10 +1,21 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:quick_draw/components/background.dart';
 import 'package:quick_draw/components/effects.dart';
 import 'package:quick_draw/components/player.dart';
 import 'package:quick_draw/components/target.dart';
 import 'package:quick_draw/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+Achievement? findAchievement(List<Achievement> achievements, String id) {
+  for (final achievement in achievements) {
+    if (achievement.id == id) {
+      return achievement;
+    }
+  }
+  return null;
+}
 
 void main() {
   test('level up recommendations offer exactly three upgrades', () {
@@ -16,14 +27,16 @@ void main() {
     expect(choices.map((choice) => choice.type).toSet(), hasLength(3));
   });
 
-  test('blade power is always offered as an upgrade choice', () {
-    final game = QuickDrawGame()..playerAttackPower = 4;
+  test('blade power can be displaced by higher priority choices', () {
+    final game = QuickDrawGame()
+      ..playerAttackPower = 4
+      ..health = 0.2;
 
     final choices = game.recommendedUpgradeChoices();
 
     expect(
       choices.map((choice) => choice.type),
-      contains(UpgradeType.bladePower),
+      isNot(contains(UpgradeType.bladePower)),
     );
   });
 
@@ -43,16 +56,15 @@ void main() {
     );
     expect(
       choices
-          .firstWhere((choice) => choice.type == UpgradeType.bladePower)
+          .firstWhere((choice) => choice.type == UpgradeType.criticalStrike)
           .currentValue,
-      'CURRENT 4',
+      'CURRENT 0%',
     );
   });
 
   test('rare upgrades already taken are removed from the rare pool', () {
     final game = QuickDrawGame()
       ..rareUpgradeCount = 0
-      ..shadowCloneLevel = 1
       ..shieldUnlocked = true
       ..lightfootGaugeUnlocked = true
       ..chainStrikeUnlocked = true;
@@ -65,12 +77,90 @@ void main() {
     final game = QuickDrawGame();
 
     game.chooseUpgrade(
-      game.recommendedUpgradeChoices().firstWhere(
-        (choice) => choice.type == UpgradeType.bladePower,
+      const UpgradeOption(
+        type: UpgradeType.bladePower,
+        title: 'Blade Power',
+        description: 'Increase attack power by 1.',
+        color: Color(0xFFFF335F),
       ),
     );
 
     expect(game.playerAttackPower, 2);
+  });
+
+  test('critical strike upgrade adds ten percent double damage chance', () {
+    final game = QuickDrawGame()..playerAttackPower = 3;
+
+    game.chooseUpgrade(
+      const UpgradeOption(
+        type: UpgradeType.criticalStrike,
+        title: 'Critical Draw',
+        description: 'Add +10% chance to deal double damage.',
+        color: Color(0xFFFF1744),
+      ),
+    );
+
+    expect(game.criticalStrikeLevel, 1);
+    expect(game.criticalStrikeChance, closeTo(0.10, 0.0001));
+    expect(game.rollSlashDamage(roll: 0.09).damage, 6);
+    expect(game.rollSlashDamage(roll: 0.09).isCritical, isTrue);
+    expect(game.rollSlashDamage(roll: 0.10).damage, 3);
+    expect(game.rollSlashDamage(roll: 0.10).isCritical, isFalse);
+  });
+
+  test('critical strike upgrade uses the critical icon asset', () {
+    expect(
+      UpgradeType.criticalStrike.iconAssetPath,
+      'assets/images/icons/upgrades/critical_chance.png',
+    );
+  });
+
+  test('critical hit spawns red critical message effect', () {
+    final game = QuickDrawGame();
+
+    game.triggerCriticalHit(Vector2(120, 240));
+    game.processLifecycleEvents();
+
+    expect(game.children.whereType<CriticalTextEffect>(), hasLength(1));
+  });
+
+  test('missed laser target attacks the player with a laser effect', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..health = 1.0
+      ..player = (PlayerComponent()..position = Vector2(200, 680));
+
+    final blockedByShield = game.triggerLaserTargetMissed(Vector2(160, 820));
+    game.processLifecycleEvents();
+
+    expect(blockedByShield, isFalse);
+    expect(game.health, closeTo(0.7, 0.0001));
+    expect(game.children.whereType<LaserBeamEffect>(), hasLength(1));
+  });
+
+  test('missed laser target damage waits until slash action resolves', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..health = 1.0
+      ..player = (PlayerComponent()
+        ..position = Vector2(200, 680)
+        ..isDashing = true);
+
+    final blockedByShield = game.triggerLaserTargetMissed(Vector2(160, 820));
+    game.processLifecycleEvents();
+
+    expect(blockedByShield, isFalse);
+    expect(game.pendingLaserAttackCountForTest, 1);
+    expect(game.health, 1.0);
+    expect(game.children.whereType<LaserBeamEffect>(), isEmpty);
+
+    game.player.isDashing = false;
+    game.resolvePendingLaserAttacks();
+    game.processLifecycleEvents();
+
+    expect(game.pendingLaserAttackCountForTest, 0);
+    expect(game.health, closeTo(0.7, 0.0001));
+    expect(game.children.whereType<LaserBeamEffect>(), hasLength(1));
   });
 
   test('only rare upgrades are added to HUD skill slots', () {
@@ -100,6 +190,80 @@ void main() {
     expect(game.acquiredRareUpgrades, [UpgradeType.shield]);
   });
 
+  test('shadow clone is a basic upgrade with four levels', () {
+    final game = QuickDrawGame();
+
+    expect(
+      game.availableRareUpgradeOptionsForTest().map((option) => option.type),
+      isNot(contains(UpgradeType.shadowClone)),
+    );
+
+    for (var i = 0; i < 4; i++) {
+      game.chooseUpgrade(
+        const UpgradeOption(
+          type: UpgradeType.shadowClone,
+          title: 'Shadow Clone',
+          description: 'Add one side clone to widen slash range.',
+          color: Color(0xFF38BDF8),
+        ),
+      );
+    }
+
+    expect(game.shadowCloneLevel, 4);
+    expect(game.rareUpgradeCount, 0);
+    expect(game.acquiredRareUpgrades, isEmpty);
+
+    game.chooseUpgrade(
+      const UpgradeOption(
+        type: UpgradeType.shadowClone,
+        title: 'Shadow Clone',
+        description: 'Add one side clone to widen slash range.',
+        color: Color(0xFF38BDF8),
+      ),
+    );
+
+    expect(game.shadowCloneLevel, 4);
+  });
+
+  test('shadow clone offsets alternate right then left up to two per side', () {
+    expect(PlayerComponent.shadowCloneOffsetsForLevel(0), isEmpty);
+    expect(PlayerComponent.shadowCloneOffsetsForLevel(1), [60.0]);
+    expect(PlayerComponent.shadowCloneOffsetsForLevel(2), [60.0, -60.0]);
+    expect(PlayerComponent.shadowCloneOffsetsForLevel(3), [60.0, -60.0, 120.0]);
+    expect(PlayerComponent.shadowCloneOffsetsForLevel(4), [
+      60.0,
+      -60.0,
+      120.0,
+      -120.0,
+    ]);
+    expect(PlayerComponent.shadowCloneOffsetsForLevel(5), [
+      60.0,
+      -60.0,
+      120.0,
+      -120.0,
+    ]);
+  });
+
+  test('shadow clone formation is perpendicular to the slash direction', () {
+    final upwardOffsets = PlayerComponent.shadowCloneOffsetsForDirection(
+      2,
+      Vector2(0, -1),
+    );
+    expect(upwardOffsets[0].x, closeTo(60.0, 0.001));
+    expect(upwardOffsets[0].y, closeTo(0.0, 0.001));
+    expect(upwardOffsets[1].x, closeTo(-60.0, 0.001));
+    expect(upwardOffsets[1].y, closeTo(0.0, 0.001));
+
+    final rightwardOffsets = PlayerComponent.shadowCloneOffsetsForDirection(
+      2,
+      Vector2(1, 0),
+    );
+    expect(rightwardOffsets[0].x, closeTo(0.0, 0.001));
+    expect(rightwardOffsets[0].y, closeTo(60.0, 0.001));
+    expect(rightwardOffsets[1].x, closeTo(0.0, 0.001));
+    expect(rightwardOffsets[1].y, closeTo(-60.0, 0.001));
+  });
+
   test('scroll recovery upgrade increases energy gained from scroll', () {
     final game = QuickDrawGame();
     final before = game.energyRechargeForScroll(340, 680);
@@ -116,26 +280,36 @@ void main() {
     expect(game.energyRechargeForScroll(340, 680), greaterThan(before));
   });
 
-  test(
-    'luck upgrade increases bonus object spawn chance by half a percent',
-    () {
-      final game = QuickDrawGame();
+  test('luck upgrade reduces bonus object spawn interval by ten percent', () {
+    final game = QuickDrawGame();
 
-      expect(game.bonusSpawnChance, closeTo(0.01, 0.0001));
+    expect(game.bonusSpawnInterval, 400);
 
+    game.chooseUpgrade(
+      const UpgradeOption(
+        type: UpgradeType.luck,
+        title: 'Luck',
+        description: 'Reduce the bonus object spawn interval by 10%.',
+        color: Color(0xFFFFD166),
+      ),
+    );
+
+    expect(game.luckLevel, 1);
+    expect(game.bonusSpawnInterval, 360);
+
+    for (var i = 0; i < 10; i++) {
       game.chooseUpgrade(
         const UpgradeOption(
           type: UpgradeType.luck,
           title: 'Luck',
-          description: 'Bonus object spawn chance +0.5%.',
+          description: 'Reduce the bonus object spawn interval by 10%.',
           color: Color(0xFFFFD166),
         ),
       );
+    }
 
-      expect(game.luckLevel, 1);
-      expect(game.bonusSpawnChance, closeTo(0.015, 0.0001));
-    },
-  );
+    expect(game.bonusSpawnInterval, 200);
+  });
 
   test('character experience requirement increases with character level', () {
     final game = QuickDrawGame();
@@ -149,8 +323,15 @@ void main() {
     game.characterLevel = 6;
     final levelSixRequirement = game.experienceRequiredForCharacterLevel;
 
+    expect(levelOneRequirement, 6);
+    expect(levelTwoRequirement, 9);
+    expect(levelSixRequirement, 41);
     expect(levelTwoRequirement, greaterThan(levelOneRequirement));
     expect(levelSixRequirement, greaterThan(levelTwoRequirement));
+    expect(
+      levelSixRequirement - levelTwoRequirement,
+      greaterThan(levelTwoRequirement - levelOneRequirement),
+    );
   });
 
   test('shield absorbs one obstacle hit without health damage', () {
@@ -196,6 +377,252 @@ void main() {
     expect(game.inputDrainMultiplier, greaterThan(1.0));
   });
 
+  test('stage level advances at a constant turn rate', () {
+    final game = QuickDrawGame()..isPlaying = true;
+
+    expect(game.turnsRequiredForNextStage, 5);
+
+    for (var i = 0; i < 5; i++) {
+      game.onInputTurnCompleted();
+    }
+    expect(game.stageLevel, 2);
+    expect(game.turnsRequiredForNextStage, 5);
+
+    for (var i = 0; i < 5; i++) {
+      game.onInputTurnCompleted();
+    }
+    expect(game.stageLevel, 3);
+    expect(game.turnsRequiredForNextStage, 5);
+  });
+
+  test(
+    'stage background shifts from sky color toward space by level twenty',
+    () {
+      final levelOne = FallingBackground.backgroundColorForStage(1);
+      final levelTen = FallingBackground.backgroundColorForStage(10);
+      final levelTwenty = FallingBackground.backgroundColorForStage(20);
+      final levelThirty = FallingBackground.backgroundColorForStage(30);
+
+      expect(levelOne, FallingBackground.skyBackgroundColor);
+      expect(levelTen, isNot(levelOne));
+      expect(levelTwenty, isNot(levelOne));
+      expect(levelThirty, levelTwenty);
+      expect(
+        levelTwenty,
+        Color.lerp(
+          FallingBackground.skyBackgroundColor,
+          FallingBackground.spaceBackgroundColor,
+          FallingBackground.maxSpaceBlendAmount,
+        ),
+      );
+    },
+  );
+
+  test('background nearly pauses during slash movement', () {
+    final background = FallingBackground();
+
+    expect(background.normalSpeed, greaterThan(200));
+    expect(background.dashSpeed, 0);
+  });
+
+  test('game loop forces background speed from current player state', () {
+    final background = FallingBackground();
+    final game = QuickDrawGame()
+      ..background = background
+      ..player = (PlayerComponent()..isDashing = true);
+
+    game.update(0.016);
+    expect(background.currentSpeed, background.dashSpeed);
+
+    game.player.isDashing = false;
+    game.update(0.016);
+    expect(background.currentSpeed, background.normalSpeed);
+  });
+
+  test('achievement list includes upgrade stage character and score goals', () {
+    final game = QuickDrawGame()
+      ..bestStageLevel = 20
+      ..bestCharacterLevel = 7
+      ..bestScore = 5200
+      ..maxChainLength = 6;
+
+    final achievements = game.achievementsForDisplay();
+
+    expect(
+      achievements.where((item) => item.group == AchievementGroup.upgrade),
+      hasLength(22),
+    );
+    expect(
+      achievements.where((item) => item.group == AchievementGroup.stage),
+      hasLength(5),
+    );
+    expect(
+      achievements.where((item) => item.group == AchievementGroup.character),
+      hasLength(5),
+    );
+    expect(
+      achievements.where((item) => item.group == AchievementGroup.score),
+      hasLength(6),
+    );
+    expect(
+      achievements.firstWhere((item) => item.id == 'stage-20').unlocked,
+      isTrue,
+    );
+    expect(
+      achievements.firstWhere((item) => item.id == 'character-10').unlocked,
+      isFalse,
+    );
+    expect(
+      achievements.firstWhere((item) => item.id == 'score-5000').unlocked,
+      isTrue,
+    );
+    expect(
+      achievements
+          .firstWhere((item) => item.id == 'upgrade-chainLength-maxed')
+          .unlocked,
+      isTrue,
+    );
+    expect(
+      achievements
+          .firstWhere((item) => item.id == 'upgrade-chainLength-selected')
+          .unlocked,
+      isTrue,
+    );
+  });
+
+  test('visible achievements show only the next step in each progression', () {
+    final game = QuickDrawGame()
+      ..bestStageLevel = 3
+      ..bestCharacterLevel = 4
+      ..bestScore = 1200
+      ..maxChainLength = 2;
+
+    final visible = game.visibleAchievementsForDisplay();
+
+    expect(findAchievement(visible, 'stage-3'), isNull);
+    expect(findAchievement(visible, 'stage-5'), isNotNull);
+    expect(findAchievement(visible, 'character-3'), isNull);
+    expect(findAchievement(visible, 'character-5'), isNotNull);
+    expect(findAchievement(visible, 'score-1000'), isNull);
+    expect(findAchievement(visible, 'score-3000'), isNotNull);
+    expect(findAchievement(visible, 'upgrade-chainLength-selected'), isNull);
+    expect(findAchievement(visible, 'upgrade-chainLength-maxed'), isNotNull);
+  });
+
+  test('achievement unlock shows a queued bottom message', () {
+    final game = QuickDrawGame()..score = 900;
+
+    game.triggerTargetSliced(Vector2.zero());
+    expect(game.achievementToastMessage, isNull);
+
+    game.update(0.016);
+
+    expect(game.achievementToastMessage, 'ACHIEVEMENT UNLOCKED: 1000 Score');
+    expect(game.achievementToastTimer, greaterThan(0));
+  });
+
+  test('achievement progress is recorded during gameplay updates', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = PlayerComponent()
+      ..stageLevel = 3
+      ..score = 5000
+      ..characterLevel = 4;
+
+    game.update(0.016);
+
+    final achievements = game.achievementsForDisplay();
+    expect(
+      achievements.firstWhere((item) => item.id == 'stage-3').unlocked,
+      isTrue,
+    );
+    expect(
+      achievements.firstWhere((item) => item.id == 'character-3').unlocked,
+      isTrue,
+    );
+    expect(
+      achievements.firstWhere((item) => item.id == 'score-5000').unlocked,
+      isTrue,
+    );
+    expect(game.achievementToastMessage, isNotNull);
+  });
+
+  test('achievement progress persists to local storage and restores', () async {
+    SharedPreferences.setMockInitialValues({});
+    final game = QuickDrawGame()
+      ..stageLevel = 3
+      ..characterLevel = 4
+      ..score = 5000
+      ..maxChainLength = 6;
+    await game.loadAchievementProgress();
+
+    game.achievementsForDisplay();
+    await game.saveAchievementProgress();
+
+    final restored = QuickDrawGame();
+    await restored.loadAchievementProgress();
+    final achievements = restored.achievementsForDisplay();
+
+    expect(
+      achievements.firstWhere((item) => item.id == 'stage-3').unlocked,
+      isTrue,
+    );
+    expect(
+      achievements.firstWhere((item) => item.id == 'character-3').unlocked,
+      isTrue,
+    );
+    expect(
+      achievements.firstWhere((item) => item.id == 'score-5000').unlocked,
+      isTrue,
+    );
+    expect(
+      achievements
+          .firstWhere((item) => item.id == 'upgrade-chainLength-maxed')
+          .unlocked,
+      isTrue,
+    );
+  });
+
+  testWidgets(
+    'open achievements overlay refreshes when stage progress changes',
+    (tester) async {
+      final game = QuickDrawGame()
+        ..isPlaying = true
+        ..player = PlayerComponent()
+        ..stageLevel = 2
+        ..bestStageLevel = 2;
+      final achievementCount = game.achievementsForDisplay().length;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 780,
+            height: 1688,
+            child: AchievementsOverlay(game: game),
+          ),
+        ),
+      );
+
+      expect(find.text('Stage 3 Reached', skipOffstage: false), findsOneWidget);
+      expect(find.text('0 / $achievementCount'), findsOneWidget);
+
+      game.stageLevel = 3;
+      game.update(0.016);
+      await tester.pump();
+
+      expect(find.text('1 / $achievementCount'), findsOneWidget);
+      expect(find.text('Stage 5 Reached', skipOffstage: false), findsOneWidget);
+      expect(game.bestStageLevel, 3);
+      expect(
+        game
+            .achievementsForDisplay()
+            .firstWhere((item) => item.id == 'stage-3')
+            .unlocked,
+        isTrue,
+      );
+    },
+  );
+
   test('stage level increases freefall energy drain', () {
     final levelOneGame = QuickDrawGame()
       ..isPlaying = true
@@ -212,6 +639,8 @@ void main() {
       ..inputDrainMultiplier = 1.0 + (4 - 1) * 0.28;
     highStageGame.update(1.0);
 
+    expect(levelOneHealth, closeTo(0.93565, 0.0001));
+    expect(highStageGame.health, closeTo(0.881596, 0.0001));
     expect(highStageGame.health, lessThan(levelOneHealth));
     expect(highStageGame.inputDrainMultiplier, closeTo(1.84, 0.001));
   });
@@ -233,10 +662,10 @@ void main() {
 
     game.collectPendingTargetExperience(animate: false);
 
-    expect(game.experience, closeTo(0.8, 0.0001));
+    expect(game.experience, closeTo(5 / 6, 0.0001));
 
     game.triggerTargetSliced(Vector2.zero(), target: SlashTarget());
-    expect(game.experience, closeTo(0.8, 0.0001));
+    expect(game.experience, closeTo(5 / 6, 0.0001));
 
     game.collectPendingTargetExperience(animate: false);
 
@@ -257,14 +686,283 @@ void main() {
 
     game.triggerTargetSliced(
       Vector2.zero(),
-      target: SlashTarget(requiredHits: 3),
+      target: SlashTarget(durability: 3),
     );
 
     expect(game.experience, 0.0);
 
     game.collectPendingTargetExperience(animate: false);
 
-    expect(game.experience, closeTo(0.6, 0.0001));
+    expect(game.experience, closeTo(0.5, 0.0001));
+  });
+
+  test('laser targets grant triple durability experience when removed', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = PlayerComponent()
+      ..characterLevel = 6;
+    game.player.position = Vector2(200, 600);
+
+    game.triggerTargetSliced(
+      Vector2.zero(),
+      target: LaserTarget(maxStageDurability: 3),
+    );
+
+    expect(game.experience, 0.0);
+
+    game.collectPendingTargetExperience(animate: false);
+
+    expect(game.experience, closeTo(12 / 41, 0.0001));
+    expect(game.characterLevel, 6);
+  });
+
+  test('laser targets drop yellow energy shards when removed', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = PlayerComponent()
+      ..health = 0.4;
+    game.player.position = Vector2(200, 600);
+
+    game.triggerTargetSliced(
+      Vector2(160, 220),
+      target: LaserTarget(maxStageDurability: 3),
+    );
+    game.processLifecycleEvents();
+
+    expect(game.children.whereType<EnergyShard>(), hasLength(2));
+
+    final shard = game.children.whereType<EnergyShard>().first;
+    game.triggerEnergyShardCollected(shard.position);
+
+    expect(game.health, closeTo(0.48, 0.0001));
+    expect(game.lastRequestedSoundForTest, GameSound.energyShardAbsorb);
+  });
+
+  test(
+    'energy shards keep chasing the player while upgrade choices are open',
+    () async {
+      final game = QuickDrawGame()
+        ..isPlaying = true
+        ..isChoosingUpgrade = true
+        ..player = PlayerComponent();
+      game.onGameResize(Vector2(780, 1688));
+      await game.add(game.player);
+      game.processLifecycleEvents();
+      game.player.position = Vector2(320, 620);
+      final shard = EnergyShard(position: Vector2(120, 220));
+      await game.add(shard);
+      game.processLifecycleEvents();
+
+      shard.update(0.3);
+      final beforeDistance = (shard.position - game.player.position).length;
+
+      game.update(0.3);
+
+      final afterDistance = (shard.position - game.player.position).length;
+      expect(afterDistance, lessThan(beforeDistance));
+    },
+  );
+
+  test(
+    'energy shards can be absorbed while upgrade choices are open',
+    () async {
+      final game = QuickDrawGame()
+        ..isPlaying = true
+        ..isChoosingUpgrade = true
+        ..health = 0.4
+        ..player = PlayerComponent();
+      game.onGameResize(Vector2(780, 1688));
+      await game.add(game.player);
+      game.processLifecycleEvents();
+      game.player.position = Vector2(320, 620);
+      final shard = EnergyShard(position: Vector2(322, 622));
+      await game.add(shard);
+      game.processLifecycleEvents();
+
+      shard.update(0.3);
+      game.update(0.016);
+
+      expect(game.health, closeTo(0.48, 0.0001));
+      expect(game.lastRequestedSoundForTest, GameSound.energyShardAbsorb);
+    },
+  );
+
+  test('sliced normal targets request the slice sound effect', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = PlayerComponent();
+    game.player.position = Vector2(200, 600);
+
+    game.triggerTargetSliced(
+      Vector2.zero(),
+      target: SlashTarget(durability: 1),
+    );
+
+    expect(game.lastRequestedSoundForTest, GameSound.targetSlice);
+  });
+
+  test('executing a slash requests the empty slash swing sound', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = PlayerComponent();
+    game.onGameResize(Vector2(780, 1688));
+    game.add(game.player);
+    game.processLifecycleEvents();
+    game.player.resetToBasePosition();
+
+    game.addToChain(Vector2(220, 520));
+
+    expect(game.lastRequestedSoundForTest, GameSound.slashSwing);
+  });
+
+  test('chain input timer only starts from the first input', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..maxChainLength = 3
+      ..player = PlayerComponent();
+    game.onGameResize(Vector2(780, 1688));
+    game.add(game.player);
+    game.processLifecycleEvents();
+    game.player.resetToBasePosition();
+
+    game.addToChain(Vector2(220, 520));
+    game.chainTimer = 0.8;
+
+    game.addToChain(Vector2(260, 480));
+
+    expect(game.chainTimer, 0.8);
+  });
+
+  test(
+    'experience shards request the absorb sound when they reach the player',
+    () {
+      final game = QuickDrawGame()
+        ..isPlaying = true
+        ..player = PlayerComponent();
+      game.player.position = Vector2(200, 600);
+
+      final emitter = ExperienceShardEmitter(
+        origins: [Vector2(160, 220), Vector2(180, 240)],
+        burstDirection: Vector2(0, 1),
+      );
+      game.add(emitter);
+      game.processLifecycleEvents();
+
+      emitter.update(ExperienceShardEmitter.duration);
+      game.processLifecycleEvents();
+
+      expect(game.lastRequestedSoundForTest, GameSound.experienceShardAbsorb);
+    },
+  );
+
+  test(
+    'experience shards chase the current player position after bursting',
+    () {
+      final game = QuickDrawGame()
+        ..isPlaying = true
+        ..player = PlayerComponent();
+      game.player.position = Vector2(200, 600);
+
+      final emitter = ExperienceShardEmitter(
+        origins: [Vector2(160, 220)],
+        burstDirection: Vector2(0, 1),
+      );
+      game.add(emitter);
+      game.processLifecycleEvents();
+
+      emitter.update(ExperienceShardEmitter.duration * 0.35);
+      game.player.position = Vector2(360, 620);
+      final beforeDistance =
+          (emitter.shardPositionsForTest.single - game.player.position).length;
+
+      emitter.update(ExperienceShardEmitter.duration * 0.35);
+      final afterDistance =
+          (emitter.shardPositionsForTest.single - game.player.position).length;
+
+      expect(afterDistance, lessThan(beforeDistance));
+    },
+  );
+
+  test(
+    'experience shards pause during upgrade choice then resume chasing player',
+    () {
+      final game = QuickDrawGame()
+        ..isPlaying = true
+        ..isChoosingUpgrade = true
+        ..player = PlayerComponent();
+      game.player.position = Vector2(200, 600);
+
+      final emitter = ExperienceShardEmitter(
+        origins: [Vector2(160, 220)],
+        burstDirection: Vector2(0, 1),
+      );
+      game.add(emitter);
+      game.processLifecycleEvents();
+
+      final pausedPosition = emitter.shardPositionsForTest.single;
+      emitter.update(ExperienceShardEmitter.duration * 0.6);
+
+      final stillPosition = emitter.shardPositionsForTest.single;
+      expect(stillPosition.x, closeTo(pausedPosition.x, 0.001));
+      expect(stillPosition.y, closeTo(pausedPosition.y, 0.001));
+
+      game.isChoosingUpgrade = false;
+      game.player.position = Vector2(360, 620);
+
+      emitter.update(ExperienceShardEmitter.duration * 0.35);
+      final beforeDistance =
+          (emitter.shardPositionsForTest.single - game.player.position).length;
+
+      emitter.update(ExperienceShardEmitter.duration * 0.35);
+      final afterDistance =
+          (emitter.shardPositionsForTest.single - game.player.position).length;
+
+      expect(afterDistance, lessThan(beforeDistance));
+    },
+  );
+
+  test('experience shards ignore camera shifts during upgrade choice', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..isChoosingUpgrade = true
+      ..player = PlayerComponent();
+    game.player.position = Vector2(200, 600);
+
+    final emitter = ExperienceShardEmitter(
+      origins: [Vector2(160, 220)],
+      burstDirection: Vector2(0, 1),
+    );
+    game.add(emitter);
+    game.processLifecycleEvents();
+
+    final pausedPosition = emitter.shardPositionsForTest.single;
+    emitter.applyCameraShift(Vector2(0, 240));
+
+    final shiftedPosition = emitter.shardPositionsForTest.single;
+    expect(shiftedPosition.x, closeTo(pausedPosition.x, 0.001));
+    expect(shiftedPosition.y, closeTo(pausedPosition.y, 0.001));
+
+    game.isChoosingUpgrade = false;
+    emitter.applyCameraShift(Vector2(0, 240));
+
+    final resumedPosition = emitter.shardPositionsForTest.single;
+    expect(resumedPosition.y, closeTo(pausedPosition.y + 240, 0.001));
+  });
+
+  test('shard absorb sounds play at sixty percent sfx volume', () {
+    final game = QuickDrawGame()
+      ..masterVolume = 0.8
+      ..sfxVolume = 0.5;
+
+    expect(game.effectiveSfxVolumeFor(GameSound.targetSlice), 0.4);
+    expect(
+      game.effectiveSfxVolumeFor(GameSound.energyShardAbsorb),
+      closeTo(0.24, 0.0001),
+    );
+    expect(
+      game.effectiveSfxVolumeFor(GameSound.experienceShardAbsorb),
+      closeTo(0.24, 0.0001),
+    );
   });
 
   test(
@@ -277,7 +975,7 @@ void main() {
 
       game.triggerTargetSliced(
         Vector2(160, 220),
-        target: SlashTarget(requiredHits: 2),
+        target: SlashTarget(durability: 2),
       );
       game.processLifecycleEvents();
 
@@ -289,7 +987,7 @@ void main() {
 
       game.collectPendingTargetExperience();
 
-      expect(game.experience, closeTo(0.4, 0.0001));
+      expect(game.experience, closeTo(1 / 3, 0.0001));
     },
   );
 
@@ -301,7 +999,7 @@ void main() {
 
     game.triggerTargetSliced(
       Vector2(160, 220),
-      target: SlashTarget(requiredHits: 1),
+      target: SlashTarget(durability: 1),
     );
     game.processLifecycleEvents();
 
@@ -347,18 +1045,15 @@ void main() {
     expect(game.health, game.maxHealth);
   });
 
-  test(
-    'lightfoot gauge is ten times harder to fill than the old threshold',
-    () {
-      final game = QuickDrawGame()
-        ..player = PlayerComponent()
-        ..lightfootGaugeUnlocked = true;
+  test('lightfoot gauge requires fifty percent more distance than before', () {
+    final game = QuickDrawGame()
+      ..player = PlayerComponent()
+      ..lightfootGaugeUnlocked = true;
 
-      game.addLightfootDistance(1600);
+    game.addLightfootDistance(1600);
 
-      expect(game.lightfootGauge, closeTo(0.1, 0.0001));
-    },
-  );
+    expect(game.lightfootGauge, closeTo(0.0667, 0.0001));
+  });
 
   test(
     'lightfoot ultimate removes floating objects and fills energy',
@@ -462,6 +1157,63 @@ void main() {
     );
   });
 
+  test('slash dash movement speed is thirty percent faster', () {
+    expect(PlayerComponent.dashSpeed, closeTo(5590.0, 0.001));
+  });
+
+  test('slash dash easing keeps duration but makes the middle fastest', () {
+    expect(
+      PlayerComponent.dashSegmentDurationForDistance(559),
+      closeTo(0.1, 0.001),
+    );
+
+    final openingStep =
+        PlayerComponent.dashMotionEase(0.1) -
+        PlayerComponent.dashMotionEase(0.0);
+    final middleStep =
+        PlayerComponent.dashMotionEase(0.55) -
+        PlayerComponent.dashMotionEase(0.45);
+    final closingStep =
+        PlayerComponent.dashMotionEase(1.0) -
+        PlayerComponent.dashMotionEase(0.9);
+
+    expect(PlayerComponent.dashMotionEase(0), 0);
+    expect(PlayerComponent.dashMotionEase(1), 1);
+    expect(middleStep, greaterThan(openingStep * 10));
+    expect(middleStep, greaterThan(closingStep * 10));
+  });
+
+  test('upgrade choice ignores input during the initial lock window', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = PlayerComponent();
+    const option = UpgradeOption(
+      type: UpgradeType.bladePower,
+      title: 'Blade Power',
+      description: 'Increase attack power by 1.',
+      color: Color(0xFFFF335F),
+    );
+
+    game.upgradeInputLockTimer = QuickDrawGame.upgradeInputLockDuration;
+
+    game.chooseUpgrade(option);
+
+    expect(game.playerAttackPower, 1);
+    expect(game.lastRequestedSoundForTest, isNull);
+    expect(QuickDrawGame.upgradeInputLockDuration, 0.7);
+
+    game.update(0.69);
+    expect(game.canChooseUpgrade, isFalse);
+    game.update(0.011);
+    expect(game.canChooseUpgrade, isTrue);
+
+    game.upgradeInputLockTimer = 0.0;
+    game.chooseUpgrade(option);
+
+    expect(game.playerAttackPower, 2);
+    expect(game.lastRequestedSoundForTest, GameSound.uiConfirm);
+  });
+
   testWidgets('upgrade overlay renders three horizontal choices', (
     tester,
   ) async {
@@ -479,7 +1231,7 @@ void main() {
           title: 'Shadow Clone',
           description: 'Side clones widen slash range.',
           color: Color(0xFF38BDF8),
-          isRare: true,
+          currentValue: 'CURRENT 0 / 4',
         ),
         UpgradeOption(
           type: UpgradeType.shield,
@@ -507,6 +1259,199 @@ void main() {
     expect(find.text('Blade Power'), findsOneWidget);
     expect(find.text('Shadow Clone'), findsOneWidget);
     expect(find.text('Guard Seal'), findsOneWidget);
+  });
+
+  testWidgets('upgrade overlay disables choices during input lock', (
+    tester,
+  ) async {
+    final game = QuickDrawGame()
+      ..upgradeInputLockTimer = QuickDrawGame.upgradeInputLockDuration
+      ..currentUpgradeChoices = const [
+        UpgradeOption(
+          type: UpgradeType.bladePower,
+          title: 'Blade Power',
+          description: 'Increase attack power by 1.',
+          color: Color(0xFFFF335F),
+        ),
+        UpgradeOption(
+          type: UpgradeType.chainLength,
+          title: 'Longer Chain',
+          description: 'Add one more slash waypoint.',
+          color: Color(0xFF00E5FF),
+        ),
+        UpgradeOption(
+          type: UpgradeType.luck,
+          title: 'Luck',
+          description: 'Reduce the bonus object spawn interval by 10%.',
+          color: Color(0xFFFFD166),
+        ),
+      ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: UpgradeOverlay(game: game),
+        ),
+      ),
+    );
+
+    expect(
+      tester
+          .widgetList<ElevatedButton>(find.byType(ElevatedButton))
+          .every((button) => button.onPressed == null),
+      isTrue,
+    );
+
+    game.upgradeInputLockTimer = 0.0;
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      tester
+          .widgetList<ElevatedButton>(find.byType(ElevatedButton))
+          .every((button) => button.onPressed != null),
+      isTrue,
+    );
+  });
+
+  testWidgets('start overlay shows game start and achievements buttons', (
+    tester,
+  ) async {
+    final game = QuickDrawGame();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: StartOverlay(game: game),
+        ),
+      ),
+    );
+
+    expect(find.text('GAME START'), findsOneWidget);
+    expect(find.text('ACHIEVEMENTS'), findsOneWidget);
+    expect(find.text('HOW TO PLAY'), findsNothing);
+    expect(find.byType(Image), findsNWidgets(2));
+    expect(
+      find.image(const AssetImage(StartOverlay.homeTitleAsset)),
+      findsOneWidget,
+    );
+
+    final startButton = find.widgetWithText(ElevatedButton, 'GAME START');
+    final achievementsButton = find.widgetWithText(
+      OutlinedButton,
+      'ACHIEVEMENTS',
+    );
+    expect(tester.getSize(startButton).width, 420);
+    expect(tester.getSize(achievementsButton).width, 420);
+    expect(
+      tester.getCenter(achievementsButton).dy,
+      greaterThan(tester.getCenter(startButton).dy),
+    );
+    expect(
+      tester.getCenter(achievementsButton).dx,
+      tester.getCenter(startButton).dx,
+    );
+  });
+
+  testWidgets('home achievement button requests the UI select sound', (
+    tester,
+  ) async {
+    final game = QuickDrawGame();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: StartOverlay(game: game),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('ACHIEVEMENTS'));
+    await tester.pump();
+
+    expect(game.lastRequestedSoundForTest, GameSound.uiSelect);
+  });
+
+  test('generated UI sound assets are registered', () {
+    expect(GameSound.uiSelect.assetPath, 'elevenlabs/ui_select.mp3');
+    expect(GameSound.uiConfirm.assetPath, 'elevenlabs/ui_confirm.mp3');
+    expect(
+      GameSound.uiVolumePreview.assetPath,
+      'elevenlabs/ui_volume_preview.mp3',
+    );
+  });
+
+  testWidgets('achievements overlay renders grouped achievement progress', (
+    tester,
+  ) async {
+    final game = QuickDrawGame()
+      ..bestStageLevel = 3
+      ..bestCharacterLevel = 2
+      ..bestScore = 1200
+      ..shadowCloneLevel = 4;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: AchievementsOverlay(game: game),
+        ),
+      ),
+    );
+
+    expect(find.text('ACHIEVEMENTS'), findsOneWidget);
+    expect(find.text('UPGRADES'), findsOneWidget);
+    expect(find.text('STAGE LEVEL', skipOffstage: false), findsOneWidget);
+    expect(find.text('CHARACTER LEVEL', skipOffstage: false), findsOneWidget);
+    expect(find.text('SCORE', skipOffstage: false), findsOneWidget);
+    expect(find.text('Stage 5 Reached', skipOffstage: false), findsOneWidget);
+    expect(find.text('Shadow Clone Mastered'), findsOneWidget);
+  });
+
+  testWidgets('hud renders achievement toast as one bottom line', (
+    tester,
+  ) async {
+    final game = QuickDrawGame()
+      ..achievementToastMessage = 'ACHIEVEMENT UNLOCKED: 1000 Score'
+      ..achievementToastTimer = 3.0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: Stack(children: [HUDOverlay(game: game)]),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('achievement-toast')), findsOneWidget);
+    expect(find.text('ACHIEVEMENT UNLOCKED: 1000 Score'), findsOneWidget);
+  });
+
+  testWidgets('settings button requests the UI select sound', (tester) async {
+    final game = QuickDrawGame();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: Stack(children: [HUDOverlay(game: game)]),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('settings-button')));
+    await tester.pump();
+
+    expect(game.lastRequestedSoundForTest, GameSound.uiSelect);
   });
 
   testWidgets('level up announcements use distinct colors by level type', (
@@ -576,7 +1521,7 @@ void main() {
       ..score = 1200
       ..acquiredRareUpgrades.addAll([
         UpgradeType.shield,
-        UpgradeType.shadowClone,
+        UpgradeType.lightfootGauge,
         UpgradeType.chainStrike,
       ]);
 
@@ -589,5 +1534,106 @@ void main() {
     expect(find.byKey(const ValueKey('rare-skill-slot-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('rare-skill-slot-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('rare-skill-slot-2')), findsNothing);
+  });
+
+  testWidgets('settings overlay adjusts master bgm and sfx volume', (
+    tester,
+  ) async {
+    final game = QuickDrawGame();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(children: [SettingsOverlay(game: game)]),
+      ),
+    );
+
+    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('MASTER'), findsOneWidget);
+    expect(find.text('BGM'), findsOneWidget);
+    expect(find.text('SFX'), findsOneWidget);
+
+    final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
+    expect(sliders, hasLength(3));
+
+    sliders[0].onChanged?.call(0.7);
+    expect(game.lastRequestedSoundForTest, GameSound.uiVolumePreview);
+    sliders[1].onChanged?.call(0.4);
+    expect(game.lastRequestedSoundForTest, GameSound.uiVolumePreview);
+    sliders[2].onChanged?.call(0.25);
+    expect(game.lastRequestedSoundForTest, GameSound.uiVolumePreview);
+    await tester.pump();
+
+    expect(game.masterVolume, 0.7);
+    expect(game.bgmVolume, 0.4);
+    expect(game.sfxVolume, 0.25);
+    expect(game.effectiveBgmVolume, closeTo(0.28, 0.001));
+    expect(game.effectiveSfxVolume, closeTo(0.175, 0.001));
+  });
+
+  test('settings pause and close resumes an active run', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = PlayerComponent();
+
+    game.openSettings();
+
+    expect(game.paused, isTrue);
+
+    game.closeSettings();
+
+    expect(game.paused, isFalse);
+  });
+
+  test('system back only closes allowed UI overlays', () {
+    final game = QuickDrawGame();
+    game.overlays.addEntry(
+      'AchievementsScreen',
+      (context, game) => const SizedBox.shrink(),
+    );
+    game.overlays.addEntry(
+      'SettingsScreen',
+      (context, game) => const SizedBox.shrink(),
+    );
+    game.overlays.addEntry(
+      'UpgradeScreen',
+      (context, game) => const SizedBox.shrink(),
+    );
+
+    expect(game.handleSystemBack(), isFalse);
+
+    game.overlays.add('AchievementsScreen');
+    expect(game.handleSystemBack(), isTrue);
+    expect(game.overlays.activeOverlays, isNot(contains('AchievementsScreen')));
+
+    game.overlays.add('UpgradeScreen');
+    expect(game.handleSystemBack(), isFalse);
+    expect(game.overlays.activeOverlays, contains('UpgradeScreen'));
+
+    game.overlays.add('SettingsScreen');
+    expect(game.handleSystemBack(), isTrue);
+    expect(game.overlays.activeOverlays, isNot(contains('SettingsScreen')));
+    expect(game.overlays.activeOverlays, contains('UpgradeScreen'));
+  });
+
+  testWidgets('settings home button stops the run and returns home', (
+    tester,
+  ) async {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = PlayerComponent();
+    game.pauseEngine();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(children: [SettingsOverlay(game: game)]),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('settings-home-button')));
+    await tester.pump();
+
+    expect(game.isPlaying, isFalse);
+    expect(game.isGameOver, isFalse);
+    expect(game.paused, isFalse);
   });
 }

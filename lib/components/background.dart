@@ -3,14 +3,19 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 class FallingBackground extends PositionComponent with HasGameReference {
+  static const int skyTintMaxStage = 20;
+  static const Color skyBackgroundColor = Color(0xFF123B5F);
+  static const Color spaceBackgroundColor = Color(0xFF000104);
+  static const double maxSpaceBlendAmount = 0.74;
+
   final List<_BackgroundParticle> _particles = [];
   double _scrollOffset = 0.0;
   final Random _random = Random();
 
-  // Base scroll speed representing falling
-  double currentSpeed = 100.0;
-  final double normalSpeed = 100.0;
-  final double dashSpeed = 1200.0;
+  // Base scroll speed representing falling.
+  double currentSpeed = 400.0;
+  final double normalSpeed = 260.0;
+  final double dashSpeed = 0.0;
 
   FallingBackground() {
     // We want the background to fill the screen
@@ -69,7 +74,8 @@ class FallingBackground extends PositionComponent with HasGameReference {
     super.render(canvas);
 
     // Draw dark space background
-    final bgPaint = Paint()..color = const Color(0xFF0D0E15);
+    final bgPaint = Paint()
+      ..color = backgroundColorForStage((game as dynamic).stageLevel as int);
     canvas.drawRect(size.toRect(), bgPaint);
 
     // Draw faint grid lines
@@ -125,6 +131,15 @@ class FallingBackground extends PositionComponent with HasGameReference {
     }
     // Shift grid
     _scrollOffset += delta.y * 0.3;
+  }
+
+  static Color backgroundColorForStage(int stageLevel) {
+    final progress = ((stageLevel - 1) / (skyTintMaxStage - 1)).clamp(0.0, 1.0);
+    return Color.lerp(
+      skyBackgroundColor,
+      spaceBackgroundColor,
+      progress * maxSpaceBlendAmount,
+    )!;
   }
 }
 
