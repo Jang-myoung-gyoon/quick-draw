@@ -161,9 +161,8 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
   int maxTargetDurabilityForStage(int level) {
     if (level <= 1) return 1;
-    if (level == 2) return 2;
-    if (level == 3) return 4;
-    return min(15, 1 + level * 2);
+    if (level <= 5) return level;
+    return min(15, level + 2);
   }
 
   int laserTargetStageDurabilityBase(int level) {

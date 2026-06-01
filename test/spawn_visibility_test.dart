@@ -38,7 +38,7 @@ void main() {
     expect(game.targetFloatingObjectCount, 13);
   });
 
-  test('replacement spawn stays on the entering scroll boundary', () {
+  test('replacement spawn always stays on the top boundary', () {
     final game = QuickDrawGame();
     game.onGameResize(Vector2(400, 800));
     game.player = PlayerComponent()..position = Vector2(200, 680);
@@ -51,27 +51,19 @@ void main() {
       expect(topSpawn.x, inInclusiveRange(48, 352));
       expect(topSpawn.y, inInclusiveRange(48, 120));
 
-      final leftSpawn = game.replacementBoundarySpawnPosition(
+      final horizontalSpawn = game.replacementBoundarySpawnPosition(
         existingObjects: const [],
         cameraShift: Vector2(10, 0),
       );
-      expect(leftSpawn.x, inInclusiveRange(48, 120));
-      expect(leftSpawn.y, inInclusiveRange(48, game.maxSpawnY));
-
-      final rightSpawn = game.replacementBoundarySpawnPosition(
-        existingObjects: const [],
-        cameraShift: Vector2(-10, 0),
-      );
-      expect(rightSpawn.x, inInclusiveRange(280, 352));
-      expect(rightSpawn.y, inInclusiveRange(48, game.maxSpawnY));
+      expect(horizontalSpawn.x, inInclusiveRange(48, 352));
+      expect(horizontalSpawn.y, inInclusiveRange(48, 120));
 
       final lowerSpawn = game.replacementBoundarySpawnPosition(
         existingObjects: const [],
         cameraShift: Vector2(0, -10),
       );
       expect(lowerSpawn.x, inInclusiveRange(48, 352));
-      expect(lowerSpawn.y, lessThanOrEqualTo(game.maxSpawnY));
-      expect(lowerSpawn.y, lessThan(800 - 48));
+      expect(lowerSpawn.y, inInclusiveRange(48, 120));
     }
   });
 
@@ -96,23 +88,35 @@ void main() {
 
     expect(game.maxTargetDurabilityForStage(1), 1);
     expect(game.maxTargetDurabilityForStage(2), 2);
-    expect(game.maxTargetDurabilityForStage(3), 4);
-    expect(game.maxTargetDurabilityForStage(4), 9);
-    expect(game.maxTargetDurabilityForStage(6), 13);
-    expect(game.maxTargetDurabilityForStage(8), 15);
+    expect(game.maxTargetDurabilityForStage(3), 3);
+    expect(game.maxTargetDurabilityForStage(4), 4);
+    expect(game.maxTargetDurabilityForStage(5), 5);
+    expect(game.maxTargetDurabilityForStage(6), 8);
+    expect(game.maxTargetDurabilityForStage(13), 15);
     expect(game.laserTargetStageDurabilityBase(2), 1);
-    expect(game.laserTargetStageDurabilityBase(3), 4);
+    expect(game.laserTargetStageDurabilityBase(3), 3);
 
-    var sawFourDurabilityTarget = false;
+    var sawThreeDurabilityTarget = false;
     for (var i = 0; i < 240; i++) {
       final object = game.spawnFloatingObjectForTest(120, 120);
-      if (object is SlashTarget && object.durability == 4) {
-        sawFourDurabilityTarget = true;
+      if (object is SlashTarget && object.durability == 3) {
+        sawThreeDurabilityTarget = true;
         break;
       }
     }
 
-    expect(sawFourDurabilityTarget, isTrue);
+    expect(sawThreeDurabilityTarget, isTrue);
+  });
+
+  test('stages two through five increase durability smoothly', () {
+    final game = QuickDrawGame();
+
+    expect([2, 3, 4, 5].map(game.maxTargetDurabilityForStage).toList(), [
+      2,
+      3,
+      4,
+      5,
+    ]);
   });
 
   test('stage two only spawns targets up to two durability', () {
@@ -185,6 +189,38 @@ void main() {
 
     expect(sawLaserTarget, isTrue);
   });
+
+  test(
+    'laser target durability varies from thirty percent lower to current max',
+    () {
+      final game = QuickDrawGame();
+      const stageMaxDurability = 8;
+      final minDurability = LaserTarget.minimumDurabilityForStageMax(
+        stageMaxDurability,
+      );
+      final maxDurability = LaserTarget.durabilityForStageMax(
+        stageMaxDurability,
+      );
+
+      var sawMinRange = false;
+      var sawMax = false;
+      for (var i = 0; i < 400; i++) {
+        final durability = game.laserTargetDurabilityForStage(
+          stageMaxDurability,
+        );
+        expect(durability, inInclusiveRange(minDurability, maxDurability));
+        if (durability < maxDurability) {
+          sawMinRange = true;
+        }
+        if (durability == maxDurability) {
+          sawMax = true;
+        }
+      }
+
+      expect(sawMinRange, isTrue);
+      expect(sawMax, isTrue);
+    },
+  );
 
   test('laser target spawn is not disabled after one appears', () {
     final game = QuickDrawGame()..isPlaying = true;
@@ -323,6 +359,22 @@ void main() {
     game.processLifecycleEvents();
 
     expect(game.children.whereType<FloatingObject>(), isNotEmpty);
+  });
+
+  test('replacement spawns are blocked while the screen scrolls sideways', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = (PlayerComponent()..position = Vector2(200, 680));
+    game.onGameResize(Vector2(400, 800));
+
+    game.setReplacementCameraShiftForTest(Vector2(1, 0));
+    game.addReplacementScrollPixelsForTest(
+      game.replacementSpawnPixelsPerObject,
+    );
+    game.maintainFloatingObjectCountForTest();
+    game.processLifecycleEvents();
+
+    expect(game.children.whereType<FloatingObject>(), isEmpty);
   });
 
   test('replacement spawn pixel budget shrinks as object limit increases', () {

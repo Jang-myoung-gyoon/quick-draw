@@ -324,8 +324,13 @@ class LaserTarget extends SlashTarget {
   static int durabilityForStageMax(int maxStageDurability) =>
       min(20, max(1, (maxStageDurability * 1.3).ceil()));
 
-  LaserTarget({required int maxStageDurability})
-    : super(durability: durabilityForStageMax(maxStageDurability)) {
+  static int minimumDurabilityForStageMax(int maxStageDurability) =>
+      max(1, (durabilityForStageMax(maxStageDurability) * 0.7).ceil());
+
+  LaserTarget({required int maxStageDurability, int? durability})
+    : super(
+        durability: durability ?? durabilityForStageMax(maxStageDurability),
+      ) {
     size = Vector2(86, 86);
   }
 

@@ -78,6 +78,7 @@ void main() {
       final target = LaserTarget(maxStageDurability: 7);
 
       expect(target.durability, 10);
+      expect(LaserTarget.minimumDurabilityForStageMax(7), 7);
       expect(LaserTarget.durabilityForStageMax(15), 20);
       expect(LaserTarget.durabilityForStageMax(30), 20);
     },

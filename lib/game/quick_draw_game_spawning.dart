@@ -48,7 +48,7 @@ extension QuickDrawGameSpawning on QuickDrawGame {
 
   bool lastCameraShiftAllowsReplacementSpawn() {
     final verticalScroll = _lastCameraShift.y.abs() >= _lastCameraShift.x.abs();
-    return !verticalScroll || _lastCameraShift.y >= 0;
+    return verticalScroll && _lastCameraShift.y >= 0;
   }
 
   bool isFloatingObjectVisible(FloatingObject object) {
@@ -79,37 +79,16 @@ extension QuickDrawGameSpawning on QuickDrawGame {
     required Iterable<FloatingObject> existingObjects,
     required Vector2 cameraShift,
   }) {
-    final horizontalScroll = cameraShift.x.abs() > cameraShift.y.abs();
     final edgeBand = min(
       QuickDrawGame._replacementSpawnEdgeBand,
       min(size.x, size.y) * 0.24,
     );
 
     Vector2 sampleCandidate() {
-      if (horizontalScroll) {
-        final enteringFromLeft = cameraShift.x > 0;
-        final x = enteringFromLeft
-            ? randomInRange(
-                QuickDrawGame._spawnInset,
-                QuickDrawGame._spawnInset + edgeBand,
-              )
-            : randomInRange(
-                size.x - QuickDrawGame._spawnInset - edgeBand,
-                size.x - QuickDrawGame._spawnInset,
-              );
-        return Vector2(x, randomInRange(QuickDrawGame._spawnInset, maxSpawnY));
-      }
-
-      final enteringFromTop = cameraShift.y >= 0;
-      final y = enteringFromTop
-          ? randomInRange(
-              QuickDrawGame._spawnInset,
-              QuickDrawGame._spawnInset + edgeBand,
-            )
-          : randomInRange(
-              max(QuickDrawGame._spawnInset, maxSpawnY - edgeBand),
-              maxSpawnY,
-            );
+      final y = randomInRange(
+        QuickDrawGame._spawnInset,
+        QuickDrawGame._spawnInset + edgeBand,
+      );
       return Vector2(
         randomInRange(
           QuickDrawGame._spawnInset,
@@ -168,8 +147,10 @@ extension QuickDrawGameSpawning on QuickDrawGame {
 
     final laserChance = laserTargetSpawnChance;
     if (stageLevel >= 2 && roll < laserChance) {
+      final durabilityBase = laserTargetStageDurabilityBase(stageLevel);
       final target = LaserTarget(
-        maxStageDurability: laserTargetStageDurabilityBase(stageLevel),
+        maxStageDurability: durabilityBase,
+        durability: laserTargetDurabilityForStage(durabilityBase),
       )..position = Vector2(x, y);
       add(target);
       recordNonBonusSpawn();
@@ -197,6 +178,14 @@ extension QuickDrawGameSpawning on QuickDrawGame {
       updateChainHighlighting();
       return target;
     }
+  }
+
+  int laserTargetDurabilityForStage(int maxStageDurability) {
+    final minDurability = LaserTarget.minimumDurabilityForStageMax(
+      maxStageDurability,
+    );
+    final maxDurability = LaserTarget.durabilityForStageMax(maxStageDurability);
+    return minDurability + random.nextInt(maxDurability - minDurability + 1);
   }
 
   bool shouldSpawnBonusObject() {
