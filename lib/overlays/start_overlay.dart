@@ -63,6 +63,36 @@ class _StartOverlayState extends State<StartOverlay> {
               ),
             ),
             Positioned(
+              top: 44,
+              right: 24,
+              child: IconButton(
+                key: const ValueKey('home-mute-button'),
+                tooltip: game.isMuted
+                    ? (t.isKo ? '음소거 해제' : 'Unmute')
+                    : (t.isKo ? '음소거' : 'Mute'),
+                onPressed: () {
+                  setState(() {
+                    game.toggleMute();
+                  });
+                },
+                icon: Icon(game.isMuted ? Icons.volume_off : Icons.volume_up),
+                iconSize: 30,
+                color: game.isMuted
+                    ? const Color(0xFFFF2D55)
+                    : const Color(0xFF00FFCC),
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(
+                    0xFF05060A,
+                  ).withValues(alpha: 0.58),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.24)),
+                  fixedSize: const Size(56, 56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
               top: 74,
               left: 34,
               right: 34,

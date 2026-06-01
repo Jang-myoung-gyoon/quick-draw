@@ -1409,6 +1409,36 @@ void main() {
     expect(game.lastRequestedSoundForTest, GameSound.uiSelect);
   });
 
+  testWidgets('home mute button toggles master volume mute state', (
+    tester,
+  ) async {
+    final game = QuickDrawGame();
+    expect(game.isMuted, isFalse);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: StartOverlay(game: game),
+        ),
+      ),
+    );
+
+    final muteButton = find.byKey(const ValueKey('home-mute-button'));
+    expect(muteButton, findsOneWidget);
+
+    // Tap to mute
+    await tester.tap(muteButton);
+    await tester.pump();
+    expect(game.isMuted, isTrue);
+
+    // Tap to unmute
+    await tester.tap(muteButton);
+    await tester.pump();
+    expect(game.isMuted, isFalse);
+  });
+
   test('generated UI sound assets are registered', () {
     expect(GameSound.uiSelect.assetPath, 'elevenlabs/ui_select.mp3');
     expect(GameSound.uiConfirm.assetPath, 'elevenlabs/ui_confirm.mp3');
