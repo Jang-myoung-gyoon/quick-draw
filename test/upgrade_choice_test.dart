@@ -58,7 +58,7 @@ void main() {
       choices
           .firstWhere((choice) => choice.type == UpgradeType.criticalStrike)
           .currentValue,
-      'CURRENT 0%',
+      '${game.text.current} 0%',
     );
   });
 
@@ -517,7 +517,10 @@ void main() {
 
     game.update(0.016);
 
-    expect(game.achievementToastMessage, 'ACHIEVEMENT UNLOCKED: 1000 Score');
+    expect(
+      game.achievementToastMessage,
+      game.text.achievementUnlocked(game.text.scoreAchievementTitle(1000)),
+    );
     expect(game.achievementToastTimer, greaterThan(0));
   });
 
@@ -603,7 +606,10 @@ void main() {
         ),
       );
 
-      expect(find.text('Stage 3 Reached', skipOffstage: false), findsOneWidget);
+      expect(
+        find.text(game.text.stageAchievementTitle(3), skipOffstage: false),
+        findsOneWidget,
+      );
       expect(find.text('0 / $achievementCount'), findsOneWidget);
 
       game.stageLevel = 3;
@@ -611,7 +617,10 @@ void main() {
       await tester.pump();
 
       expect(find.text('1 / $achievementCount'), findsOneWidget);
-      expect(find.text('Stage 5 Reached', skipOffstage: false), findsOneWidget);
+      expect(
+        find.text(game.text.stageAchievementTitle(5), skipOffstage: false),
+        findsOneWidget,
+      );
       expect(game.bestStageLevel, 3);
       expect(
         game
@@ -739,7 +748,7 @@ void main() {
   });
 
   test(
-    'energy shards keep chasing the player while upgrade choices are open',
+    'energy shards pause during upgrade choice then resume chasing player',
     () async {
       final game = QuickDrawGame()
         ..isPlaying = true
@@ -753,39 +762,49 @@ void main() {
       await game.add(shard);
       game.processLifecycleEvents();
 
+      final pausedPosition = shard.position.clone();
       shard.update(0.3);
+      game.update(0.3);
+
+      expect(shard.position.x, closeTo(pausedPosition.x, 0.001));
+      expect(shard.position.y, closeTo(pausedPosition.y, 0.001));
+
+      game.isChoosingUpgrade = false;
       final beforeDistance = (shard.position - game.player.position).length;
 
-      game.update(0.3);
+      shard.update(0.3);
 
       final afterDistance = (shard.position - game.player.position).length;
       expect(afterDistance, lessThan(beforeDistance));
     },
   );
 
-  test(
-    'energy shards can be absorbed while upgrade choices are open',
-    () async {
-      final game = QuickDrawGame()
-        ..isPlaying = true
-        ..isChoosingUpgrade = true
-        ..health = 0.4
-        ..player = PlayerComponent();
-      game.onGameResize(Vector2(780, 1688));
-      await game.add(game.player);
-      game.processLifecycleEvents();
-      game.player.position = Vector2(320, 620);
-      final shard = EnergyShard(position: Vector2(322, 622));
-      await game.add(shard);
-      game.processLifecycleEvents();
+  test('energy shards wait during upgrade choices before absorption', () async {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..isChoosingUpgrade = true
+      ..health = 0.4
+      ..player = PlayerComponent();
+    game.onGameResize(Vector2(780, 1688));
+    await game.add(game.player);
+    game.processLifecycleEvents();
+    game.player.position = Vector2(320, 620);
+    final shard = EnergyShard(position: Vector2(322, 622));
+    await game.add(shard);
+    game.processLifecycleEvents();
 
-      shard.update(0.3);
-      game.update(0.016);
+    shard.update(0.3);
+    game.update(0.016);
 
-      expect(game.health, closeTo(0.48, 0.0001));
-      expect(game.lastRequestedSoundForTest, GameSound.energyShardAbsorb);
-    },
-  );
+    expect(game.health, closeTo(0.4, 0.0001));
+    expect(game.lastRequestedSoundForTest, isNull);
+
+    game.isChoosingUpgrade = false;
+    shard.update(0.3);
+
+    expect(game.health, closeTo(0.48, 0.0001));
+    expect(game.lastRequestedSoundForTest, GameSound.energyShardAbsorb);
+  });
 
   test('sliced normal targets request the slice sound effect', () {
     final game = QuickDrawGame()
@@ -955,6 +974,11 @@ void main() {
       ..sfxVolume = 0.5;
 
     expect(game.effectiveSfxVolumeFor(GameSound.targetSlice), 0.4);
+    expect(game.effectiveSfxVolumeFor(GameSound.uiSelect), 0.4);
+    expect(
+      game.effectiveSfxVolumeFor(GameSound.uiConfirm),
+      closeTo(0.288, 0.0001),
+    );
     expect(
       game.effectiveSfxVolumeFor(GameSound.energyShardAbsorb),
       closeTo(0.24, 0.0001),
@@ -1252,9 +1276,9 @@ void main() {
       ),
     );
 
-    expect(find.text('UPGRADE'), findsOneWidget);
-    expect(find.text('CHARACTER LEVEL UP'), findsOneWidget);
-    expect(find.text('LEVEL 1'), findsOneWidget);
+    expect(find.text(game.text.upgrade), findsOneWidget);
+    expect(find.text(game.text.characterLevelUp), findsOneWidget);
+    expect(find.text(game.text.level(1)), findsOneWidget);
     expect(find.text('CURRENT 1'), findsOneWidget);
     expect(find.text('Blade Power'), findsOneWidget);
     expect(find.text('Shadow Clone'), findsOneWidget);
@@ -1330,8 +1354,8 @@ void main() {
       ),
     );
 
-    expect(find.text('GAME START'), findsOneWidget);
-    expect(find.text('ACHIEVEMENTS'), findsOneWidget);
+    expect(find.text(game.text.gameStart), findsOneWidget);
+    expect(find.text(game.text.achievements), findsOneWidget);
     expect(find.text('HOW TO PLAY'), findsNothing);
     expect(find.byType(Image), findsNWidgets(2));
     expect(
@@ -1339,10 +1363,13 @@ void main() {
       findsOneWidget,
     );
 
-    final startButton = find.widgetWithText(ElevatedButton, 'GAME START');
+    final startButton = find.widgetWithText(
+      ElevatedButton,
+      game.text.gameStart,
+    );
     final achievementsButton = find.widgetWithText(
       OutlinedButton,
-      'ACHIEVEMENTS',
+      game.text.achievements,
     );
     expect(tester.getSize(startButton).width, 420);
     expect(tester.getSize(achievementsButton).width, 420);
@@ -1371,7 +1398,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('ACHIEVEMENTS'));
+    await tester.tap(find.text(game.text.achievements));
     await tester.pump();
 
     expect(game.lastRequestedSoundForTest, GameSound.uiSelect);
@@ -1405,13 +1432,25 @@ void main() {
       ),
     );
 
-    expect(find.text('ACHIEVEMENTS'), findsOneWidget);
-    expect(find.text('UPGRADES'), findsOneWidget);
-    expect(find.text('STAGE LEVEL', skipOffstage: false), findsOneWidget);
-    expect(find.text('CHARACTER LEVEL', skipOffstage: false), findsOneWidget);
-    expect(find.text('SCORE', skipOffstage: false), findsOneWidget);
-    expect(find.text('Stage 5 Reached', skipOffstage: false), findsOneWidget);
-    expect(find.text('Shadow Clone Mastered'), findsOneWidget);
+    expect(find.text(game.text.achievements), findsOneWidget);
+    expect(find.text(game.text.upgrades), findsOneWidget);
+    expect(
+      find.text(game.text.stageLevel, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.text(game.text.characterLevel, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.text(game.text.score, skipOffstage: false), findsOneWidget);
+    expect(
+      find.text(game.text.stageAchievementTitle(5), skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.text(game.text.masteredAchievementTitle(UpgradeType.shadowClone)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('hud renders achievement toast as one bottom line', (
@@ -1494,8 +1533,10 @@ void main() {
       ),
     );
 
-    final characterTitle = tester.widget<Text>(find.text('CHARACTER LEVEL UP'));
-    final characterLevel = tester.widget<Text>(find.text('LEVEL 2'));
+    final characterTitle = tester.widget<Text>(
+      find.text(game.text.characterLevelUp),
+    );
+    final characterLevel = tester.widget<Text>(find.text(game.text.level(2)));
 
     game.levelUpAnnouncementTitle = 'STAGE LEVEL UP';
     game.levelUpAnnouncementLevel = 3;
@@ -1509,8 +1550,8 @@ void main() {
       ),
     );
 
-    final stageTitle = tester.widget<Text>(find.text('STAGE LEVEL UP'));
-    final stageLevel = tester.widget<Text>(find.text('LEVEL 3'));
+    final stageTitle = tester.widget<Text>(find.text(game.text.stageLevelUp));
+    final stageLevel = tester.widget<Text>(find.text(game.text.level(3)));
 
     expect(characterTitle.style?.color, isNot(stageTitle.style?.color));
     expect(characterLevel.style?.color, isNot(stageLevel.style?.color));
@@ -1547,10 +1588,11 @@ void main() {
       ),
     );
 
-    expect(find.text('SETTINGS'), findsOneWidget);
-    expect(find.text('MASTER'), findsOneWidget);
-    expect(find.text('BGM'), findsOneWidget);
-    expect(find.text('SFX'), findsOneWidget);
+    expect(find.text(game.text.settings), findsOneWidget);
+    expect(find.text(game.text.master), findsOneWidget);
+    expect(find.text(game.text.bgm), findsOneWidget);
+    expect(find.text(game.text.sfx), findsOneWidget);
+    expect(find.text(game.text.languageLabel), findsOneWidget);
 
     final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
     expect(sliders, hasLength(3));
@@ -1568,6 +1610,26 @@ void main() {
     expect(game.sfxVolume, 0.25);
     expect(game.effectiveBgmVolume, closeTo(0.28, 0.001));
     expect(game.effectiveSfxVolume, closeTo(0.175, 0.001));
+  });
+
+  testWidgets('settings overlay switches text language packs', (tester) async {
+    final game = QuickDrawGame();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(children: [SettingsOverlay(game: game)]),
+      ),
+    );
+
+    expect(find.text('설정'), findsOneWidget);
+    expect(find.text('SETTINGS'), findsNothing);
+
+    await tester.tap(find.text('영어'));
+    await tester.pump();
+
+    expect(game.language, GameLanguage.en);
+    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('설정'), findsNothing);
   });
 
   test('settings pause and close resumes an active run', () {

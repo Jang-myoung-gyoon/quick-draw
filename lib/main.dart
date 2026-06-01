@@ -113,9 +113,7 @@ enum GameSound {
 
   double get volumeMultiplier => switch (this) {
     GameSound.energyShardAbsorb || GameSound.experienceShardAbsorb => 0.6,
-    GameSound.uiSelect ||
-    GameSound.uiConfirm ||
-    GameSound.uiVolumePreview => 0.72,
+    GameSound.uiConfirm || GameSound.uiVolumePreview => 0.72,
     _ => 1.0,
   };
 }
@@ -126,6 +124,124 @@ enum GameMusic {
   final String assetPath;
 
   const GameMusic(this.assetPath);
+}
+
+enum GameLanguage { ko, en }
+
+class GameText {
+  final GameLanguage language;
+
+  const GameText(this.language);
+
+  bool get isKo => language == GameLanguage.ko;
+
+  String get appTitle => isKo ? '발도술 키우기' : 'Battoujutsu Slasher';
+  String get gameStart => isKo ? '게임 시작' : 'GAME START';
+  String get achievements => isKo ? '업적' : 'ACHIEVEMENTS';
+  String get upgrades => isKo ? '업그레이드' : 'UPGRADES';
+  String get stageLevel => isKo ? '스테이지 레벨' : 'STAGE LEVEL';
+  String get characterLevel => isKo ? '캐릭터 레벨' : 'CHARACTER LEVEL';
+  String get score => isKo ? '점수' : 'SCORE';
+  String get defeated => isKo ? '패배' : 'DEFEATED';
+  String get finalScore => isKo ? '최종 점수' : 'FINAL SCORE';
+  String get tryAgain => isKo ? '다시 도전' : 'TRY AGAIN';
+  String get upgrade => isKo ? '강화 선택' : 'UPGRADE';
+  String get rare => isKo ? '레어' : 'RARE';
+  String get settings => isKo ? '설정' : 'SETTINGS';
+  String get close => isKo ? '닫기' : 'Close';
+  String get master => isKo ? '마스터' : 'MASTER';
+  String get bgm => isKo ? '배경음' : 'BGM';
+  String get sfx => isKo ? '효과음' : 'SFX';
+  String get home => isKo ? '홈으로' : 'HOME';
+  String get languageLabel => isKo ? '언어' : 'LANGUAGE';
+  String get korean => isKo ? '한국어' : 'Korean';
+  String get english => isKo ? '영어' : 'English';
+  String get energy => isKo ? '에너지' : 'ENERGY';
+  String get step => isKo ? '경공' : 'STEP';
+  String get current => isKo ? '현재' : 'CURRENT';
+  String get characterLevelUp => isKo ? '캐릭터 레벨 업' : 'CHARACTER LEVEL UP';
+  String get stageLevelUp => isKo ? '스테이지 레벨 업' : 'STAGE LEVEL UP';
+  String level(int level) => isKo ? '레벨 $level' : 'LEVEL $level';
+  String comboSlices(int combo) => isKo ? '$combo 연속 베기' : '$combo SLICES';
+  String characterGauge(int level) => isKo ? '캐릭터 $level' : 'C.$level';
+  String achievementUnlocked(String title) =>
+      isKo ? '업적 달성: $title' : 'ACHIEVEMENT UNLOCKED: $title';
+
+  String levelUpTitle(String title) {
+    return switch (title) {
+      'CHARACTER LEVEL UP' => characterLevelUp,
+      'STAGE LEVEL UP' => stageLevelUp,
+      _ => title,
+    };
+  }
+
+  String upgradeTitle(UpgradeType type) => switch (type) {
+    UpgradeType.bladePower => isKo ? '검기 강화' : 'Blade Power',
+    UpgradeType.criticalStrike => isKo ? '치명 발도' : 'Critical Draw',
+    UpgradeType.chainLength => isKo ? '연속 베기' : 'Longer Chain',
+    UpgradeType.scrollRecovery => isKo ? '공중 흐름' : 'Aerial Flow',
+    UpgradeType.energyEfficiency => isKo ? '고요한 호흡' : 'Calm Breathing',
+    UpgradeType.focusTime => isKo ? '집중 시간' : 'Focus Window',
+    UpgradeType.luck => isKo ? '행운' : 'Luck',
+    UpgradeType.shadowClone => isKo ? '분신술' : 'Shadow Clone',
+    UpgradeType.shield => isKo ? '수호 부적' : 'Guard Seal',
+    UpgradeType.lightfootGauge => isKo ? '경공술' : 'Lightfoot',
+    UpgradeType.chainStrike => isKo ? '연쇄 타격' : 'Chain Strike',
+  };
+
+  String upgradeDescription(UpgradeType type) => switch (type) {
+    UpgradeType.bladePower =>
+      isKo ? '공격력이 1 증가합니다.' : 'Increase attack power by 1.',
+    UpgradeType.criticalStrike =>
+      isKo ? '10% 확률로 2배 피해를 줍니다.' : 'Add +10% chance to deal double damage.',
+    UpgradeType.chainLength =>
+      isKo ? '베기 경로를 하나 더 입력할 수 있습니다.' : 'Add one more slash waypoint.',
+    UpgradeType.scrollRecovery =>
+      isKo ? '위로 스크롤할 때 에너지를 더 얻습니다.' : 'Gain more energy from upward scroll.',
+    UpgradeType.energyEfficiency =>
+      isKo ? '자유낙하 중 에너지 소모가 줄어듭니다.' : 'Slow passive energy drain.',
+    UpgradeType.focusTime =>
+      isKo ? '연속 베기 입력 시간이 늘어납니다.' : 'More time to finish a chain.',
+    UpgradeType.luck =>
+      isKo
+          ? '보너스 오브젝트 등장 간격이 10% 줄어듭니다.'
+          : 'Reduce the bonus object spawn interval by 10%.',
+    UpgradeType.shadowClone =>
+      isKo
+          ? '분신을 하나 추가해 베기 범위를 넓힙니다.'
+          : 'Add one side clone to widen slash range.',
+    UpgradeType.shield =>
+      isKo ? '충돌 피해를 한 번 막습니다.' : 'Block one collision hit.',
+    UpgradeType.lightfootGauge =>
+      isKo ? '이동으로 필살기 게이지를 채웁니다.' : 'Movement fills an ultimate gauge.',
+    UpgradeType.chainStrike =>
+      isKo
+          ? '피해를 입은 대상을 다음 베기 위치로 튕깁니다.'
+          : 'Damaged targets bounce into the next cut.',
+  };
+
+  String selectedAchievementTitle(UpgradeType type) =>
+      isKo ? '${upgradeTitle(type)} 획득' : '${upgradeTitle(type)} Selected';
+  String masteredAchievementTitle(UpgradeType type) =>
+      isKo ? '${upgradeTitle(type)} 완성' : '${upgradeTitle(type)} Mastered';
+  String get selectedAchievementDescription =>
+      isKo ? '이 업그레이드를 처음 선택합니다.' : 'Choose this upgrade for the first time.';
+  String get masteredAchievementDescription => isKo
+      ? '이 업그레이드를 최대치까지 성장시킵니다.'
+      : 'Reach the maximum state for this upgrade.';
+  String stageAchievementTitle(int level) =>
+      isKo ? '스테이지 $level 도달' : 'Stage $level Reached';
+  String stageAchievementDescription(int level) =>
+      isKo ? '스테이지 레벨 $level에 도달합니다.' : 'Reach stage level $level.';
+  String characterAchievementTitle(int level) =>
+      isKo ? '캐릭터 레벨 $level' : 'Character Level $level';
+  String characterAchievementDescription(int level) => isKo
+      ? '캐릭터를 레벨 $level까지 성장시킵니다.'
+      : 'Raise the character to level $level.';
+  String scoreAchievementTitle(int scoreTarget) =>
+      isKo ? '$scoreTarget점 달성' : '$scoreTarget Score';
+  String scoreAchievementDescription(int scoreTarget) =>
+      isKo ? '$scoreTarget점을 달성합니다.' : 'Reach a score of $scoreTarget.';
 }
 
 extension UpgradeTypeIconAsset on UpgradeType {
@@ -154,7 +270,7 @@ class MyGameApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Battoujutsu Slasher',
+      title: const GameText(GameLanguage.ko).appTitle,
       theme: ThemeData(brightness: Brightness.dark, fontFamily: 'Roboto'),
       home: const GamePage(),
     );
@@ -308,6 +424,9 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   int _spawnsSinceLastBonus = 0;
   bool _pausedForSettings = false;
   bool soundEnabled = true;
+  GameLanguage language = GameLanguage.ko;
+  GameText get text => GameText(language);
+  bool get isGameplayPausedForUi => isChoosingUpgrade || paused;
 
   // Chain variables (now using raw screen coordinates instead of targets)
   final List<Vector2> currentChainPoints = [];
@@ -507,6 +626,17 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
   void previewUiVolume() {
     playSound(GameSound.uiVolumePreview);
+  }
+
+  void setLanguage(GameLanguage value) {
+    if (language == value) {
+      return;
+    }
+    language = value;
+    currentUpgradeChoices = isChoosingUpgrade
+        ? recommendedUpgradeChoices()
+        : const [];
+    achievementRevision.value++;
   }
 
   void _startBackgroundMusic() {
@@ -903,70 +1033,71 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   List<UpgradeOption> recommendedUpgradeChoices() {
+    final t = text;
     final options = <UpgradeOption>[
       UpgradeOption(
         type: UpgradeType.bladePower,
-        title: 'Blade Power',
-        description: 'Increase attack power by 1.',
+        title: t.upgradeTitle(UpgradeType.bladePower),
+        description: t.upgradeDescription(UpgradeType.bladePower),
         color: const Color(0xFFFF335F),
-        currentValue: 'CURRENT $playerAttackPower',
+        currentValue: '${t.current} $playerAttackPower',
       ),
       UpgradeOption(
         type: UpgradeType.criticalStrike,
-        title: 'Critical Draw',
-        description: 'Add +10% chance to deal double damage.',
+        title: t.upgradeTitle(UpgradeType.criticalStrike),
+        description: t.upgradeDescription(UpgradeType.criticalStrike),
         color: const Color(0xFFFF1744),
         currentValue:
-            'CURRENT ${(criticalStrikeChance * 100).toStringAsFixed(0)}%',
+            '${t.current} ${(criticalStrikeChance * 100).toStringAsFixed(0)}%',
       ),
       if (maxChainLength < 6)
         UpgradeOption(
           type: UpgradeType.chainLength,
-          title: 'Longer Chain',
-          description: 'Add one more slash waypoint.',
+          title: t.upgradeTitle(UpgradeType.chainLength),
+          description: t.upgradeDescription(UpgradeType.chainLength),
           color: const Color(0xFF00E5FF),
-          currentValue: 'CURRENT $maxChainLength',
+          currentValue: '${t.current} $maxChainLength',
         ),
       if (scrollEnergyGainMultiplier < 1.75)
         UpgradeOption(
           type: UpgradeType.scrollRecovery,
-          title: 'Aerial Flow',
-          description: 'Gain more energy from upward scroll.',
+          title: t.upgradeTitle(UpgradeType.scrollRecovery),
+          description: t.upgradeDescription(UpgradeType.scrollRecovery),
           color: const Color(0xFF00FFCC),
           currentValue:
-              'CURRENT ${(scrollEnergyGainMultiplier * 100).round()}%',
+              '${t.current} ${(scrollEnergyGainMultiplier * 100).round()}%',
         ),
       if (passiveDrainRate > 0.026)
         UpgradeOption(
           type: UpgradeType.energyEfficiency,
-          title: 'Calm Breathing',
-          description: 'Slow passive energy drain.',
+          title: t.upgradeTitle(UpgradeType.energyEfficiency),
+          description: t.upgradeDescription(UpgradeType.energyEfficiency),
           color: const Color(0xFFFFB020),
           currentValue:
-              'CURRENT ${(passiveDrainRate * 100).toStringAsFixed(1)}',
+              '${t.current} ${(passiveDrainRate * 100).toStringAsFixed(1)}',
         ),
       if (maxChainTime < 2.3)
         UpgradeOption(
           type: UpgradeType.focusTime,
-          title: 'Focus Window',
-          description: 'More time to finish a chain.',
+          title: t.upgradeTitle(UpgradeType.focusTime),
+          description: t.upgradeDescription(UpgradeType.focusTime),
           color: const Color(0xFFA855F7),
-          currentValue: 'CURRENT ${maxChainTime.toStringAsFixed(2)}s',
+          currentValue: '${t.current} ${maxChainTime.toStringAsFixed(2)}s',
         ),
       UpgradeOption(
         type: UpgradeType.luck,
-        title: 'Luck',
-        description: 'Reduce the bonus object spawn interval by 10%.',
+        title: t.upgradeTitle(UpgradeType.luck),
+        description: t.upgradeDescription(UpgradeType.luck),
         color: const Color(0xFFFFD166),
-        currentValue: 'CURRENT 1 / $bonusSpawnInterval',
+        currentValue: '${t.current} 1 / $bonusSpawnInterval',
       ),
       if (shadowCloneLevel < 4)
         UpgradeOption(
           type: UpgradeType.shadowClone,
-          title: 'Shadow Clone',
-          description: 'Add one side clone to widen slash range.',
+          title: t.upgradeTitle(UpgradeType.shadowClone),
+          description: t.upgradeDescription(UpgradeType.shadowClone),
           color: const Color(0xFF38BDF8),
-          currentValue: 'CURRENT $shadowCloneLevel / 4',
+          currentValue: '${t.current} $shadowCloneLevel / 4',
         ),
     ];
 
@@ -995,29 +1126,30 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
   @visibleForTesting
   List<UpgradeOption> availableRareUpgradeOptionsForTest() {
+    final t = text;
     return <UpgradeOption>[
       if (!shieldUnlocked)
-        const UpgradeOption(
+        UpgradeOption(
           type: UpgradeType.shield,
-          title: 'Guard Seal',
-          description: 'Block one collision hit.',
-          color: Color(0xFFEAB308),
+          title: t.upgradeTitle(UpgradeType.shield),
+          description: t.upgradeDescription(UpgradeType.shield),
+          color: const Color(0xFFEAB308),
           isRare: true,
         ),
       if (!lightfootGaugeUnlocked)
-        const UpgradeOption(
+        UpgradeOption(
           type: UpgradeType.lightfootGauge,
-          title: 'Lightfoot',
-          description: 'Movement fills an ultimate gauge.',
-          color: Color(0xFF22C55E),
+          title: t.upgradeTitle(UpgradeType.lightfootGauge),
+          description: t.upgradeDescription(UpgradeType.lightfootGauge),
+          color: const Color(0xFF22C55E),
           isRare: true,
         ),
       if (!chainStrikeUnlocked)
-        const UpgradeOption(
+        UpgradeOption(
           type: UpgradeType.chainStrike,
-          title: 'Chain Strike',
-          description: 'Damaged targets bounce into the next cut.',
-          color: Color(0xFFF97316),
+          title: t.upgradeTitle(UpgradeType.chainStrike),
+          description: t.upgradeDescription(UpgradeType.chainStrike),
+          color: const Color(0xFFF97316),
           isRare: true,
         ),
     ];
@@ -1424,9 +1556,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
         continue;
       }
       if (_announcedAchievementIds.add(achievement.id)) {
-        _achievementToastQueue.add(
-          'ACHIEVEMENT UNLOCKED: ${achievement.title}',
-        );
+        _achievementToastQueue.add(text.achievementUnlocked(achievement.title));
       }
     }
   }
@@ -1447,41 +1577,25 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   List<Achievement> _upgradeAchievements() {
-    const definitions = <UpgradeType, String>{
-      UpgradeType.bladePower: 'Blade Power',
-      UpgradeType.criticalStrike: 'Critical Draw',
-      UpgradeType.chainLength: 'Longer Chain',
-      UpgradeType.scrollRecovery: 'Aerial Flow',
-      UpgradeType.energyEfficiency: 'Calm Breathing',
-      UpgradeType.focusTime: 'Focus Window',
-      UpgradeType.luck: 'Luck',
-      UpgradeType.shadowClone: 'Shadow Clone',
-      UpgradeType.shield: 'Guard Seal',
-      UpgradeType.lightfootGauge: 'Lightfoot',
-      UpgradeType.chainStrike: 'Chain Strike',
-    };
-    return definitions.entries
+    final t = text;
+    return UpgradeType.values
         .expand(
-          (entry) => [
+          (type) => [
             Achievement(
-              id: 'upgrade-${entry.key.name}-selected',
-              title: '${entry.value} Selected',
-              description: 'Choose this upgrade for the first time.',
+              id: 'upgrade-${type.name}-selected',
+              title: t.selectedAchievementTitle(type),
+              description: t.selectedAchievementDescription,
               group: AchievementGroup.upgrade,
-              unlocked: selectedUpgradeAchievements.contains(entry.key),
-              progress: selectedUpgradeAchievements.contains(entry.key)
-                  ? 1.0
-                  : 0.0,
+              unlocked: selectedUpgradeAchievements.contains(type),
+              progress: selectedUpgradeAchievements.contains(type) ? 1.0 : 0.0,
             ),
             Achievement(
-              id: 'upgrade-${entry.key.name}-maxed',
-              title: '${entry.value} Mastered',
-              description: 'Reach the maximum state for this upgrade.',
+              id: 'upgrade-${type.name}-maxed',
+              title: t.masteredAchievementTitle(type),
+              description: t.masteredAchievementDescription,
               group: AchievementGroup.upgrade,
-              unlocked: maxedUpgradeAchievements.contains(entry.key),
-              progress: maxedUpgradeAchievements.contains(entry.key)
-                  ? 1.0
-                  : 0.0,
+              unlocked: maxedUpgradeAchievements.contains(type),
+              progress: maxedUpgradeAchievements.contains(type) ? 1.0 : 0.0,
             ),
           ],
         )
@@ -1489,13 +1603,14 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   List<Achievement> _stageAchievements() {
+    final t = text;
     const levelTargets = [3, 5, 10, 15, 20];
     return levelTargets
         .map(
           (level) => Achievement(
             id: 'stage-$level',
-            title: 'Stage $level Reached',
-            description: 'Reach stage level $level.',
+            title: t.stageAchievementTitle(level),
+            description: t.stageAchievementDescription(level),
             group: AchievementGroup.stage,
             unlocked: bestStageLevel >= level,
             progress: (bestStageLevel / level).clamp(0.0, 1.0),
@@ -1505,13 +1620,14 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   List<Achievement> _characterAchievements() {
+    final t = text;
     const levelTargets = [3, 5, 10, 15, 20];
     return levelTargets
         .map(
           (level) => Achievement(
             id: 'character-$level',
-            title: 'Character Level $level',
-            description: 'Raise the character to level $level.',
+            title: t.characterAchievementTitle(level),
+            description: t.characterAchievementDescription(level),
             group: AchievementGroup.character,
             unlocked: bestCharacterLevel >= level,
             progress: (bestCharacterLevel / level).clamp(0.0, 1.0),
@@ -1521,13 +1637,14 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   List<Achievement> _scoreAchievements() {
+    final t = text;
     const thresholds = [1000, 3000, 5000, 10000, 20000, 50000];
     return thresholds
         .map(
           (scoreTarget) => Achievement(
             id: 'score-$scoreTarget',
-            title: '$scoreTarget Score',
-            description: 'Reach a score of $scoreTarget.',
+            title: t.scoreAchievementTitle(scoreTarget),
+            description: t.scoreAchievementDescription(scoreTarget),
             group: AchievementGroup.score,
             unlocked: bestScore >= scoreTarget,
             progress: (bestScore / scoreTarget).clamp(0.0, 1.0),
@@ -1774,7 +1891,6 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
     final double adjustedDt = dt * speedMultiplier;
     if (isChoosingUpgrade) {
       _syncBackgroundMotionSpeed();
-      _updateEnergyShardsDuringUpgrade(adjustedDt);
       return;
     }
 
@@ -1798,12 +1914,6 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
       if (chainTimer >= maxChainTime) {
         _executeChainSlash();
       }
-    }
-  }
-
-  void _updateEnergyShardsDuringUpgrade(double dt) {
-    for (final shard in children.whereType<EnergyShard>().toList()) {
-      shard.update(dt);
     }
   }
 
@@ -2142,6 +2252,7 @@ class StartOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = game.text;
     return SizedBox.expand(
       child: Stack(
         children: [
@@ -2192,9 +2303,9 @@ class StartOverlay extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text(
-                      'GAME START',
-                      style: TextStyle(
+                    child: Text(
+                      t.gameStart,
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2,
@@ -2222,9 +2333,9 @@ class StartOverlay extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text(
-                      'ACHIEVEMENTS',
-                      style: TextStyle(
+                    child: Text(
+                      t.achievements,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2,
@@ -2267,6 +2378,7 @@ class AchievementsOverlay extends StatelessWidget {
     final unlockedCount = achievements
         .where((achievement) => achievement.unlocked)
         .length;
+    final t = game.text;
     return Container(
       color: Colors.black.withValues(alpha: 0.9),
       padding: const EdgeInsets.symmetric(horizontal: 42, vertical: 54),
@@ -2277,10 +2389,10 @@ class AchievementsOverlay extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'ACHIEVEMENTS',
-                      style: TextStyle(
+                      t.achievements,
+                      style: const TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 4,
@@ -2301,7 +2413,7 @@ class AchievementsOverlay extends StatelessWidget {
                     onPressed: game.hideAchievements,
                     icon: const Icon(Icons.close),
                     color: Colors.white,
-                    tooltip: 'Close',
+                    tooltip: t.close,
                   ),
                 ],
               ),
@@ -2311,28 +2423,28 @@ class AchievementsOverlay extends StatelessWidget {
                   child: Column(
                     children: [
                       _AchievementSection(
-                        title: 'UPGRADES',
+                        title: t.upgrades,
                         achievements: achievementsByGroup(
                           visibleAchievements,
                           AchievementGroup.upgrade,
                         ),
                       ),
                       _AchievementSection(
-                        title: 'STAGE LEVEL',
+                        title: t.stageLevel,
                         achievements: achievementsByGroup(
                           visibleAchievements,
                           AchievementGroup.stage,
                         ),
                       ),
                       _AchievementSection(
-                        title: 'CHARACTER LEVEL',
+                        title: t.characterLevel,
                         achievements: achievementsByGroup(
                           visibleAchievements,
                           AchievementGroup.character,
                         ),
                       ),
                       _AchievementSection(
-                        title: 'SCORE',
+                        title: t.score,
                         achievements: achievementsByGroup(
                           visibleAchievements,
                           AchievementGroup.score,
@@ -2483,6 +2595,7 @@ class GameOverOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = game.text;
     return Container(
       color: Colors.black.withValues(alpha: 0.9),
       child: Center(
@@ -2490,7 +2603,7 @@ class GameOverOverlay extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'DEFEATED',
+              t.defeated,
               style: TextStyle(
                 fontSize: 54,
                 fontWeight: FontWeight.bold,
@@ -2506,7 +2619,7 @@ class GameOverOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 30),
             Text(
-              'FINAL SCORE',
+              t.finalScore,
               style: TextStyle(
                 fontSize: 16,
                 letterSpacing: 2,
@@ -2538,9 +2651,9 @@ class GameOverOverlay extends StatelessWidget {
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
-              child: const Text(
-                'TRY AGAIN',
-                style: TextStyle(
+              child: Text(
+                t.tryAgain,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,
@@ -2587,6 +2700,7 @@ class _UpgradeOverlayState extends State<UpgradeOverlay> {
   Widget build(BuildContext context) {
     final choices = widget.game.currentUpgradeChoices;
     final canChoose = widget.game.canChooseUpgrade;
+    final t = widget.game.text;
     return SizedBox.expand(
       child: Container(
         color: Colors.black.withValues(alpha: 0.72),
@@ -2601,11 +2715,12 @@ class _UpgradeOverlayState extends State<UpgradeOverlay> {
                   _LevelUpAnnouncement(
                     title: widget.game.levelUpAnnouncementTitle,
                     level: widget.game.levelUpAnnouncementLevel,
+                    text: widget.game.text,
                   ),
                   const SizedBox(height: 18),
-                  const Text(
-                    'UPGRADE',
-                    style: TextStyle(
+                  Text(
+                    t.upgrade,
+                    style: const TextStyle(
                       fontSize: 38,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 4,
@@ -2623,6 +2738,7 @@ class _UpgradeOverlayState extends State<UpgradeOverlay> {
                           Expanded(
                             child: _UpgradeButton(
                               option: choices[i],
+                              text: widget.game.text,
                               enabled: canChoose,
                               onPressed: () =>
                                   widget.game.chooseUpgrade(choices[i]),
@@ -2645,11 +2761,17 @@ class _UpgradeOverlayState extends State<UpgradeOverlay> {
 class _LevelUpAnnouncement extends StatelessWidget {
   final String title;
   final int level;
+  final GameText text;
 
-  const _LevelUpAnnouncement({required this.title, required this.level});
+  const _LevelUpAnnouncement({
+    required this.title,
+    required this.level,
+    required this.text,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final localizedTitle = text.levelUpTitle(title);
     final isStageLevelUp = title == 'STAGE LEVEL UP';
     final accentColor = isStageLevelUp
         ? const Color(0xFFFF8A3D)
@@ -2662,7 +2784,7 @@ class _LevelUpAnnouncement extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          title,
+          localizedTitle,
           style: TextStyle(
             color: accentColor,
             fontSize: 18,
@@ -2675,7 +2797,7 @@ class _LevelUpAnnouncement extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'LEVEL $level',
+          text.level(level),
           style: TextStyle(
             color: levelColor,
             fontSize: 54,
@@ -2696,11 +2818,13 @@ class _LevelUpAnnouncement extends StatelessWidget {
 
 class _UpgradeButton extends StatelessWidget {
   final UpgradeOption option;
+  final GameText text;
   final bool enabled;
   final VoidCallback onPressed;
 
   const _UpgradeButton({
     required this.option,
+    required this.text,
     required this.enabled,
     required this.onPressed,
   });
@@ -2789,7 +2913,7 @@ class _UpgradeButton extends StatelessWidget {
                     children: [
                       if (option.isRare)
                         Text(
-                          'RARE',
+                          text.rare,
                           style: TextStyle(
                             color: option.color,
                             fontSize: 11,
@@ -2850,7 +2974,7 @@ class _SettingsIconButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Tooltip(
-        message: 'Settings',
+        message: game.text.settings,
         child: IconButton(
           key: const ValueKey('settings-button'),
           onPressed: game.openSettings,
@@ -2902,101 +3026,130 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
     });
   }
 
+  void _setLanguage(GameLanguage value) {
+    setState(() {
+      widget.game.playSound(GameSound.uiSelect);
+      widget.game.setLanguage(value);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final t = widget.game.text;
     return Positioned.fill(
       child: Material(
         color: Colors.black.withValues(alpha: 0.62),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
-              decoration: BoxDecoration(
-                color: const Color(0xFF101322).withValues(alpha: 0.96),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFF00FFCC).withValues(alpha: 0.34),
-                  width: 1.4,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    blurRadius: 28,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'SETTINGS',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 3,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        key: const ValueKey('settings-close-button'),
-                        tooltip: 'Close',
-                        onPressed: widget.game.closeSettings,
-                        icon: const Icon(Icons.close),
-                        color: Colors.white70,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 22),
+                  padding: const EdgeInsets.fromLTRB(40, 34, 40, 40),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF101322).withValues(alpha: 0.96),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF00FFCC).withValues(alpha: 0.34),
+                      width: 1.6,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        blurRadius: 32,
+                        offset: const Offset(0, 14),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  _VolumeSlider(
-                    key: const ValueKey('master-volume-slider'),
-                    label: 'MASTER',
-                    value: widget.game.masterVolume,
-                    accentColor: const Color(0xFF00FFCC),
-                    onChanged: _setMasterVolume,
-                  ),
-                  const SizedBox(height: 14),
-                  _VolumeSlider(
-                    key: const ValueKey('bgm-volume-slider'),
-                    label: 'BGM',
-                    value: widget.game.bgmVolume,
-                    accentColor: const Color(0xFFA29BFE),
-                    onChanged: _setBgmVolume,
-                  ),
-                  const SizedBox(height: 14),
-                  _VolumeSlider(
-                    key: const ValueKey('sfx-volume-slider'),
-                    label: 'SFX',
-                    value: widget.game.sfxVolume,
-                    accentColor: const Color(0xFFFFD166),
-                    onChanged: _setSfxVolume,
-                  ),
-                  const SizedBox(height: 22),
-                  OutlinedButton.icon(
-                    key: const ValueKey('settings-home-button'),
-                    onPressed: widget.game.returnHomeFromSettings,
-                    icon: const Icon(Icons.home),
-                    label: const Text('HOME'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(
-                        color: const Color(0xFFFF2D55).withValues(alpha: 0.78),
-                        width: 1.4,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              t.settings,
+                              style: const TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 3,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            key: const ValueKey('settings-close-button'),
+                            tooltip: t.close,
+                            onPressed: widget.game.closeSettings,
+                            icon: const Icon(Icons.close),
+                            iconSize: 32,
+                            color: Colors.white70,
+                          ),
+                        ],
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      const SizedBox(height: 28),
+                      _VolumeSlider(
+                        key: const ValueKey('master-volume-slider'),
+                        label: t.master,
+                        value: widget.game.masterVolume,
+                        accentColor: const Color(0xFF00FFCC),
+                        onChanged: _setMasterVolume,
                       ),
-                    ),
+                      const SizedBox(height: 24),
+                      _VolumeSlider(
+                        key: const ValueKey('bgm-volume-slider'),
+                        label: t.bgm,
+                        value: widget.game.bgmVolume,
+                        accentColor: const Color(0xFFA29BFE),
+                        onChanged: _setBgmVolume,
+                      ),
+                      const SizedBox(height: 24),
+                      _VolumeSlider(
+                        key: const ValueKey('sfx-volume-slider'),
+                        label: t.sfx,
+                        value: widget.game.sfxVolume,
+                        accentColor: const Color(0xFFFFD166),
+                        onChanged: _setSfxVolume,
+                      ),
+                      const SizedBox(height: 28),
+                      _LanguageSelector(
+                        label: t.languageLabel,
+                        koreanLabel: t.korean,
+                        englishLabel: t.english,
+                        value: widget.game.language,
+                        onChanged: _setLanguage,
+                      ),
+                      const SizedBox(height: 32),
+                      OutlinedButton.icon(
+                        key: const ValueKey('settings-home-button'),
+                        onPressed: widget.game.returnHomeFromSettings,
+                        icon: const Icon(Icons.home, size: 26),
+                        label: Text(t.home),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          textStyle: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                          ),
+                          side: BorderSide(
+                            color: const Color(
+                              0xFFFF2D55,
+                            ).withValues(alpha: 0.78),
+                            width: 1.6,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -3032,7 +3185,7 @@ class _VolumeSlider extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 2,
                   color: accentColor,
@@ -3042,7 +3195,7 @@ class _VolumeSlider extends StatelessWidget {
             Text(
               '$percent%',
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
@@ -3055,9 +3208,83 @@ class _VolumeSlider extends StatelessWidget {
             inactiveTrackColor: Colors.white.withValues(alpha: 0.16),
             thumbColor: Colors.white,
             overlayColor: accentColor.withValues(alpha: 0.18),
-            trackHeight: 5,
+            trackHeight: 8,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
           ),
           child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
+        ),
+      ],
+    );
+  }
+}
+
+class _LanguageSelector extends StatelessWidget {
+  final String label;
+  final String koreanLabel;
+  final String englishLabel;
+  final GameLanguage value;
+  final ValueChanged<GameLanguage> onChanged;
+
+  const _LanguageSelector({
+    required this.label,
+    required this.koreanLabel,
+    required this.englishLabel,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 2,
+            color: Color(0xFF00FFCC),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SegmentedButton<GameLanguage>(
+          segments: [
+            ButtonSegment<GameLanguage>(
+              value: GameLanguage.ko,
+              label: Text(koreanLabel),
+            ),
+            ButtonSegment<GameLanguage>(
+              value: GameLanguage.en,
+              label: Text(englishLabel),
+            ),
+          ],
+          selected: {value},
+          onSelectionChanged: (selection) => onChanged(selection.first),
+          style: ButtonStyle(
+            textStyle: WidgetStateProperty.all(
+              const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+            padding: WidgetStateProperty.all(
+              const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? Colors.black
+                  : Colors.white,
+            ),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? const Color(0xFF00FFCC)
+                  : const Color(0xFF05060A),
+            ),
+            side: WidgetStateProperty.all(
+              BorderSide(
+                color: const Color(0xFF00FFCC).withValues(alpha: 0.42),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -3139,6 +3366,7 @@ class _HUDOverlayState extends State<HUDOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final t = widget.game.text;
     return Positioned.fill(
       child: Stack(
         children: [
@@ -3164,9 +3392,9 @@ class _HUDOverlayState extends State<HUDOverlay> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'SCORE',
-                              style: TextStyle(
+                            Text(
+                              t.score,
+                              style: const TextStyle(
                                 fontSize: 11,
                                 letterSpacing: 1.5,
                                 color: Colors.white60,
@@ -3222,7 +3450,7 @@ class _HUDOverlayState extends State<HUDOverlay> {
                               ),
                             ),
                             child: Text(
-                              '${widget.game.combo} SLICES',
+                              t.comboSlices(widget.game.combo),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -3256,6 +3484,7 @@ class _HUDOverlayState extends State<HUDOverlay> {
                         child: _LevelUpAnnouncement(
                           title: widget.game.levelUpAnnouncementTitle,
                           level: widget.game.levelUpAnnouncementLevel,
+                          text: widget.game.text,
                         ),
                       ),
                     ),
@@ -3280,7 +3509,7 @@ class _HUDOverlayState extends State<HUDOverlay> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         _buildVerticalGauge(
-                          label: 'ENERGY',
+                          label: t.energy,
                           value: widget.game.displayedEnergy,
                           gradientColors: widget.game.displayedEnergy < 0.25
                               ? [
@@ -3298,7 +3527,7 @@ class _HUDOverlayState extends State<HUDOverlay> {
                         ),
                         const SizedBox(width: 10),
                         _buildVerticalGauge(
-                          label: 'C.${widget.game.characterLevel}',
+                          label: t.characterGauge(widget.game.characterLevel),
                           value: widget.game.experience.clamp(0.0, 1.0),
                           gradientColors: const [
                             Color(0xFF6C5CE7),
@@ -3310,7 +3539,7 @@ class _HUDOverlayState extends State<HUDOverlay> {
                         if (widget.game.lightfootGaugeUnlocked) ...[
                           const SizedBox(width: 10),
                           _buildVerticalGauge(
-                            label: 'STEP',
+                            label: t.step,
                             value: widget.game.lightfootGauge.clamp(0.0, 1.0),
                             gradientColors: const [
                               Color(0xFF16A34A),

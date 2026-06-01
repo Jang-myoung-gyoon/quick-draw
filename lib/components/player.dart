@@ -82,7 +82,7 @@ class PlayerComponent extends PositionComponent
   ui.Image? _battoujutsuEndImage;
   double _animationTimer = 0.0;
   static const double _frameDuration = 0.09;
-  static const Size _spriteDrawSize = Size(96, 170);
+  static const Size _spriteDrawSize = Size(105.6, 187);
   static const Size _battoujutsuDrawSize = Size(144, 216);
   static const double _baseViewportHeightFactor = 2 / 3;
 
@@ -122,6 +122,9 @@ class PlayerComponent extends PositionComponent
   static double baseYForViewportHeight(double height) {
     return height * _baseViewportHeightFactor;
   }
+
+  @visibleForTesting
+  static Size get freefallSpriteDrawSize => _spriteDrawSize;
 
   void resetToBasePosition() {
     position = Vector2(game.size.x / 2, baseYForViewportHeight(game.size.y));

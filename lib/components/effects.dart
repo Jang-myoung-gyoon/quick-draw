@@ -189,7 +189,7 @@ class ExperienceShardEmitter extends Component
     if (_completed) {
       return;
     }
-    if (game.isChoosingUpgrade) {
+    if (game.isGameplayPausedForUi) {
       return;
     }
 
@@ -228,7 +228,7 @@ class ExperienceShardEmitter extends Component
   }
 
   void applyCameraShift(Vector2 delta) {
-    if (game.isChoosingUpgrade) {
+    if (game.isGameplayPausedForUi) {
       return;
     }
     for (final origin in origins) {

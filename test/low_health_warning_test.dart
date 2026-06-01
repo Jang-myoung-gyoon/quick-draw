@@ -68,8 +68,8 @@ void main() {
       find.byKey(const ValueKey('low-energy-warning-off')),
       findsOneWidget,
     );
-    expect(find.text('SCORE'), findsOneWidget);
-    expect(find.text('ENERGY'), findsOneWidget);
+    expect(find.text(game.text.score), findsOneWidget);
+    expect(find.text(game.text.energy), findsOneWidget);
     final passiveLayerSize = tester.getSize(
       find.byKey(const ValueKey('hud-passive-layer')),
     );

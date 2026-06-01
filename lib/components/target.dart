@@ -419,6 +419,9 @@ class EnergyShard extends PositionComponent
   @override
   void update(double dt) {
     super.update(dt);
+    if (game.isGameplayPausedForUi) {
+      return;
+    }
     _age += dt;
     _opacity = (_age / 0.18).clamp(0.0, 1.0);
     if (_age < _burstDuration) {
@@ -446,6 +449,9 @@ class EnergyShard extends PositionComponent
   }
 
   void applyCameraShift(Vector2 delta) {
+    if (game.isGameplayPausedForUi) {
+      return;
+    }
     position.add(delta);
   }
 
