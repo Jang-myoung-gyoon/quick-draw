@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "theme_prompt": "Project art direction for Quick Draw: a casual mobile 2D action game about a tiny sky courier swordsman slicing through floating enchanted ink targets while climbing upward through a bright paper-lantern sky. Fixed visual style: polished 2D casual mobile character art, cute heroic proportions, oversized head and hands, compact body, readable silhouette at 64-128 px, clean vector-like shapes, soft cel shading, subtle rim light, expressive face, rounded forms, energetic slash poses, high color contrast, teal/coral/gold accents, warm twilight sky palette, playful but action-focused tone. Avoid realism, gore, horror, gritty samurai violence, excessive detail, noisy textures, dark cyberpunk neon, and text in the image.",
+  "asset_kinds": {
+    "casual_2d_player_character": {
+      "description": "Main playable character concept art for the fixed casual mobile 2D style.",
+      "prompt": "Create one full-body playable hero character for a casual mobile game. Character must read clearly as a tiny battoujutsu sky courier swordsman: cute compact proportions, expressive face, short scarf or sash, simple travel outfit, sheathed non-threatening charm katana, one hand on the scabbard and one hand ready to draw, dynamic iai quick-draw dash pose, clean silhouette, game-sprite friendly details, no background text. Keep the design suitable for later Flame sprite use.",
+      "reference_mode": "optional",
+      "default_reference_image_paths": [],
+      "updated_at": "2026-05-31T09:14:00.000Z"
+    },
+    "main_hero_battoujutsu_base": {
+      "description": "Base protagonist design: a casual mobile 2D battoujutsu quick-draw hero for the player character.",
+      "prompt": "Create the base protagonist character for a casual mobile 2D action game. The hero is a tiny battoujutsu sky courier named Nori. Full-body character concept, readable at 64-128 px, compact cute heroic proportions, oversized head and hands, focused cheerful eyes, short teal hair tuft, coral scarf flowing as the motion accent, cream courier coat, gold toggle buttons, navy shorts or hakama-inspired cropped pants, oversized boots, fingerless gloves, and a small sheathed charm katana. Pose: iai quick-draw stance, knees bent, torso angled forward, left hand gripping the scabbard at the waist, right hand just touching the sword hilt, scarf and coat tails lifted as if about to dash. Mood: playful, brave, fast, non-gory, non-realistic. Clean vector-like shapes, soft cel shading, crisp silhouette, no text, no logo, no UI, no background clutter.",
+      "reference_mode": "optional",
+      "default_reference_image_paths": [],
+      "updated_at": "2026-05-31T09:14:00.000Z"
+    },
+    "casual_2d_target_character": {
+      "description": "Friendly slashable target/object concepts that match the fixed character style.",
+      "prompt": "Create a slashable floating target object/creature that fits the same casual mobile 2D style. It should feel magical and harmless: enchanted ink blob, lantern wisp, or floating charm, round readable silhouette, bright teal/coral/gold accents, clear hit-state visual potential, no scary or realistic details, no text.",
+      "reference_mode": "optional",
+      "default_reference_image_paths": [],
+      "updated_at": "2026-05-31T08:59:27.196Z"
+    },
+    "casual_2d_hazard_character": {
+      "description": "Obstacle/hazard concepts matching the fixed casual mobile 2D style.",
+      "prompt": "Create a floating obstacle/hazard for a casual mobile action game. It should read as dangerous at small size but stay cute and non-gory: paper storm knot, angry lantern spark, or ink thorn charm, orange/coral warning accents, rounded shape language, readable silhouette, no horror, no text.",
+      "reference_mode": "optional",
+      "default_reference_image_paths": [],
+      "updated_at": "2026-05-31T08:59:27.204Z"
+    }
+  },
+  "updated_at": "2026-05-31T09:14:00.000Z"
+}

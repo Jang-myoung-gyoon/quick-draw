@@ -6,7 +6,7 @@ class FallingBackground extends PositionComponent with HasGameReference {
   final List<_BackgroundParticle> _particles = [];
   double _scrollOffset = 0.0;
   final Random _random = Random();
-  
+
   // Base scroll speed representing falling
   double currentSpeed = 100.0;
   final double normalSpeed = 100.0;
@@ -74,7 +74,7 @@ class FallingBackground extends PositionComponent with HasGameReference {
 
     // Draw faint grid lines
     final gridPaint = Paint()
-      ..color = const Color(0xFF1E2135).withOpacity(0.4)
+      ..color = const Color(0xFF1E2135).withValues(alpha: 0.4)
       ..strokeWidth = 1.0;
 
     // Vertical grid lines
@@ -98,13 +98,33 @@ class FallingBackground extends PositionComponent with HasGameReference {
     // Render particles (stars/sparks floating up)
     for (final particle in _particles) {
       final particlePaint = Paint()
-        ..color = const Color(0xFF86A5FF).withOpacity(particle.opacity);
+        ..color = const Color(0xFF86A5FF).withValues(alpha: particle.opacity);
       canvas.drawCircle(
         Offset(particle.position.x, particle.position.y),
         particle.radius,
         particlePaint,
       );
     }
+  }
+
+  /// Apply an instant scroll boost when the camera follows the player.
+  void applyScrollBoost(Vector2 delta) {
+    // Push particles with parallax.
+    for (final particle in _particles) {
+      particle.position.x += delta.x * particle.speedMultiplier * 0.25;
+      particle.position.y += delta.y * particle.speedMultiplier * 0.5;
+      if (particle.position.x < 0) {
+        particle.position.x += size.x;
+      } else if (particle.position.x > size.x) {
+        particle.position.x -= size.x;
+      }
+      if (particle.position.y > size.y) {
+        particle.position.y -= size.y;
+        particle.position.x = _random.nextDouble() * size.x;
+      }
+    }
+    // Shift grid
+    _scrollOffset += delta.y * 0.3;
   }
 }
 
