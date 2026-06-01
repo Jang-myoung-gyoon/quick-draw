@@ -5,6 +5,7 @@
 *.swp
 .DS_Store
 .env
+.omx/
 .atom/
 .build/
 .buildlog/
