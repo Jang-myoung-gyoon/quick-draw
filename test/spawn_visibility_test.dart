@@ -338,4 +338,32 @@ void main() {
     game.stageLevel = 20;
     expect(game.replacementSpawnPixelsPerObject, 40.0);
   });
+
+  test(
+    'overlapping floating objects push each other away to limit overlap to 30%',
+    () {
+      final game = QuickDrawGame();
+      game.onGameResize(Vector2(400, 800));
+
+      final objA = SlashTarget()
+        ..position = Vector2(200, 200); // size is 48x48, r = 24
+      final objB = SlashTarget()
+        ..position = Vector2(210, 200); // size is 48x48, r = 24
+
+      game.add(objA);
+      game.add(objB);
+      game.processLifecycleEvents();
+
+      // Trigger update tick
+      game.update(0.016);
+
+      // Bounding radius sum = 48.
+      // 30% overlap allowed means distance must be >= 70% of 48 = 33.6.
+      final distance = (objA.position - objB.position).length;
+      expect(
+        distance,
+        greaterThanOrEqualTo(33.5),
+      ); // using 33.5 to account for floating point
+    },
+  );
 }

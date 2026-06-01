@@ -345,6 +345,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
     syncBackgroundMotionSpeed();
     super.update(adjustedDt);
+    resolveFloatingObjectRepulsion();
 
     if (!isPlaying) return;
 

@@ -289,4 +289,44 @@ extension QuickDrawGameSpawning on QuickDrawGame {
     addReplacementScrollPixels(scrolledPixels);
     maintainFloatingObjectCount();
   }
+
+  void resolveFloatingObjectRepulsion() {
+    final objects = children.whereType<FloatingObject>().toList();
+    if (objects.length < 2) return;
+
+    for (int i = 0; i < objects.length; i++) {
+      for (int j = i + 1; j < objects.length; j++) {
+        final objA = objects[i];
+        final objB = objects[j];
+
+        final posA = objA.position;
+        final posB = objB.position;
+
+        final diff = posA - posB;
+        final dist = diff.length;
+
+        // Radii based on half of the width/height
+        final rA = objA.size.x / 2;
+        final rB = objB.size.x / 2;
+
+        final minDistance =
+            (rA + rB) * 0.70; // 30% overlap allowed (distance >= 70%)
+
+        if (dist < minDistance) {
+          final dir = dist > 0 ? diff / dist : Vector2(0, -1);
+          final overlap = minDistance - dist;
+
+          // Push them apart (half of the overlap each)
+          final push = dir * (overlap * 0.5);
+          posA.add(push);
+          posB.sub(push);
+
+          // Keep them within horizontal screen boundaries
+          const inset = QuickDrawGame._spawnInset;
+          posA.x = posA.x.clamp(inset, size.x - inset);
+          posB.x = posB.x.clamp(inset, size.x - inset);
+        }
+      }
+    }
+  }
 }
