@@ -11,4 +11,16 @@ void main() {
   test('freefall animation draw size is ten percent larger', () {
     expect(PlayerComponent.freefallSpriteDrawSize, const Size(105.6, 187));
   });
+
+  test('freefall animation uses a compact six frame sheet', () {
+    expect(PlayerComponent.freefallFrameCount, 6);
+    expect(
+      PlayerComponent.freefallSourceRectForFrame(0),
+      const Rect.fromLTWH(0, 0, 212, 374),
+    );
+    expect(
+      PlayerComponent.freefallSourceRectForFrame(5),
+      const Rect.fromLTWH(1060, 0, 212, 374),
+    );
+  });
 }

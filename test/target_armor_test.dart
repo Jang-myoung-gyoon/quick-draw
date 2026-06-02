@@ -96,16 +96,15 @@ void main() {
   test('laser target sprite animation uses eight frames over two seconds', () {
     final target = LaserTarget(maxStageDurability: 7);
 
-    expect(LaserTarget.spriteAnimationFramePaths, hasLength(8));
+    expect(LaserTarget.spriteAnimationFrameCount, 8);
+    expect(LaserTarget.spriteAnimationSheetColumns, 4);
+    expect(LaserTarget.spriteAnimationSheetRows, 2);
     expect(LaserTarget.spriteAnimationDuration, 2.0);
     expect(LaserTarget.spriteFrameStepTime, closeTo(0.25, 0.0001));
     expect(target.size.x, closeTo(LaserTarget.laserDrawSize, 0.0001));
     expect(target.size.y, closeTo(LaserTarget.laserDrawSize, 0.0001));
     expect(target.pathHitRadius, LaserTarget.laserHitRadius);
-    expect(
-      target.currentSliceSpritePath,
-      LaserTarget.spriteAnimationFramePaths.first,
-    );
+    expect(target.currentSliceSpritePath, LaserTarget.spriteAnimationSheetPath);
   });
 
   test('laser target health bar segments follow required hit count', () {

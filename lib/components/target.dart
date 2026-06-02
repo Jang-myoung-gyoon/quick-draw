@@ -401,16 +401,11 @@ class SlashTarget extends FloatingObject {
 class LaserTarget extends SlashTarget {
   static const double laserDrawSize = 98.9;
   static const double laserHitRadius = 69.0;
-  static const List<String> spriteAnimationFramePaths = [
-    'sprites/generated/squirrel_spaceship_laser_idle_transparent_001.png',
-    'sprites/generated/squirrel_spaceship_laser_idle_transparent_002.png',
-    'sprites/generated/squirrel_spaceship_laser_idle_transparent_003.png',
-    'sprites/generated/squirrel_spaceship_laser_idle_transparent_004.png',
-    'sprites/generated/squirrel_spaceship_laser_idle_transparent_005.png',
-    'sprites/generated/squirrel_spaceship_laser_idle_transparent_006.png',
-    'sprites/generated/squirrel_spaceship_laser_idle_transparent_007.png',
-    'sprites/generated/squirrel_spaceship_laser_idle_transparent_008.png',
-  ];
+  static const String spriteAnimationSheetPath =
+      'sprites/enemies/sheets/squirrel_laser_idle_sheet.png';
+  static const int spriteAnimationFrameCount = 8;
+  static const int spriteAnimationSheetColumns = 4;
+  static const int spriteAnimationSheetRows = 2;
   static const double spriteAnimationDuration = 2.0;
   static const double spriteFrameStepTime = 0.25;
 
@@ -421,6 +416,7 @@ class LaserTarget extends SlashTarget {
       max(1, (durabilityForStageMax(maxStageDurability) * 0.7).ceil());
 
   SpriteAnimationTicker? _spriteAnimationTicker;
+  SpriteSheet? _spriteSheet;
   final Paint _spritePaint = Paint()..filterQuality = FilterQuality.high;
 
   LaserTarget({required int maxStageDurability, int? durability})
@@ -433,10 +429,15 @@ class LaserTarget extends SlashTarget {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    await game.images.loadAll(spriteAnimationFramePaths);
+    final sheetImage = await game.images.load(spriteAnimationSheetPath);
+    _spriteSheet = SpriteSheet.fromColumnsAndRows(
+      image: sheetImage,
+      columns: spriteAnimationSheetColumns,
+      rows: spriteAnimationSheetRows,
+    );
     final sprites = [
-      for (final framePath in spriteAnimationFramePaths)
-        Sprite(game.images.fromCache(framePath)),
+      for (var i = 0; i < spriteAnimationFrameCount; i++)
+        _spriteSheet!.getSpriteById(i),
     ];
     _spriteAnimationTicker = SpriteAnimation.spriteList(
       sprites,
@@ -484,6 +485,7 @@ class LaserTarget extends SlashTarget {
       isLeft: true,
       color: coreColor,
       spritePath: slicedSpritePath,
+      spriteSource: currentSliceSpriteSource,
       drawSize: size.x,
     );
     final rightHalf = SlicedHalfComponent(
@@ -492,6 +494,7 @@ class LaserTarget extends SlashTarget {
       isLeft: false,
       color: coreColor,
       spritePath: slicedSpritePath,
+      spriteSource: currentSliceSpriteSource,
       drawSize: size.x,
     );
 
@@ -502,11 +505,17 @@ class LaserTarget extends SlashTarget {
 
   @visibleForTesting
   String get currentSliceSpritePath {
+    return spriteAnimationSheetPath;
+  }
+
+  @visibleForTesting
+  Rect get currentSliceSpriteSource {
+    final sheet = _spriteSheet;
     final ticker = _spriteAnimationTicker;
-    if (ticker == null) {
-      return spriteAnimationFramePaths.first;
+    if (sheet == null || ticker == null) {
+      return Rect.zero;
     }
-    return spriteAnimationFramePaths[ticker.currentIndex];
+    return sheet.getSpriteById(ticker.currentIndex).src;
   }
 
   @visibleForTesting
@@ -887,6 +896,7 @@ class SlicedHalfComponent extends PositionComponent
   final bool isLeft;
   final Color color;
   final String? spritePath;
+  final Rect? spriteSource;
   final double spriteAngle;
 
   late Vector2 velocity;
@@ -899,6 +909,7 @@ class SlicedHalfComponent extends PositionComponent
     required this.isLeft,
     required this.color,
     this.spritePath,
+    this.spriteSource,
     this.spriteAngle = 0.0,
     double drawSize = SlashTarget.targetDrawSize,
   }) {
@@ -984,12 +995,9 @@ class SlicedHalfComponent extends PositionComponent
     }
 
     final image = game.images.fromCache(path);
-    final source = Rect.fromLTWH(
-      0,
-      0,
-      image.width.toDouble(),
-      image.height.toDouble(),
-    );
+    final source =
+        spriteSource ??
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
     final destination = Rect.fromCenter(
       center: Offset.zero,
       width: size.x,

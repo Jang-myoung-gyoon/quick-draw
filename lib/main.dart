@@ -208,8 +208,7 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
 }
 
 class _InitialLoadingScreen extends StatefulWidget {
-  static const String loadingArtAsset =
-      'assets/images/concepts/loading_chase.png';
+  static const String loadingArtAsset = 'assets/images/ui/loading_chase.png';
 
   const _InitialLoadingScreen();
 

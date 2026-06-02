@@ -1234,6 +1234,14 @@ void main() {
       ),
       31,
     );
+    expect(
+      PlayerComponent.gameOverDelaySourceRectForFrame(0),
+      const Rect.fromLTWH(0, 0, 212, 374),
+    );
+    expect(
+      PlayerComponent.gameOverDelaySourceRectForFrame(31),
+      const Rect.fromLTWH(1484, 1122, 212, 374),
+    );
   });
 
   test('slash dash easing keeps duration but makes the middle fastest', () {

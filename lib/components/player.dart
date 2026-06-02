@@ -5,54 +5,15 @@ import 'package:flutter/material.dart';
 import '../game/quick_draw_game.dart';
 import 'target.dart';
 
-const List<String> _freefallFramePaths = [
-  'sprites/generated/nori_freefall_veo_frames_transparent/nori_freefall_veo_01.png',
-  'sprites/generated/nori_freefall_veo_frames_transparent/nori_freefall_veo_02.png',
-  'sprites/generated/nori_freefall_veo_frames_transparent/nori_freefall_veo_03.png',
-  'sprites/generated/nori_freefall_veo_frames_transparent/nori_freefall_veo_04.png',
-  'sprites/generated/nori_freefall_veo_frames_transparent/nori_freefall_veo_05.png',
-  'sprites/generated/nori_freefall_veo_frames_transparent/nori_freefall_veo_06.png',
-];
+const String _freefallSheetPath =
+    'sprites/player/sheets/nori_freefall_sheet.png';
 
-const List<String> _gameOverDelayFramePaths = [
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_001.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_002.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_003.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_004.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_005.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_006.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_007.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_008.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_009.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_010.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_011.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_012.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_013.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_014.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_015.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_016.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_017.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_018.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_019.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_020.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_021.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_022.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_023.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_024.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_025.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_026.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_027.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_028.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_029.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_030.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_031.png',
-  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_032.png',
-];
+const String _gameOverDelaySheetPath =
+    'sprites/player/sheets/nori_game_over_collapse_sheet.png';
 
 const String _battoujutsuStartPath =
-    'sprites/video_references/nori_air_battoujutsu_dash_start_from_freefall_transparent.png';
-const String _battoujutsuEndPath =
-    'sprites/video_references/nori_air_battoujutsu_slash_end_transparent.png';
+    'sprites/player/actions/nori_dash_start.png';
+const String _battoujutsuEndPath = 'sprites/player/actions/nori_slash_end.png';
 
 enum _DashPhase { windup, moving, recovery }
 
@@ -112,16 +73,20 @@ class PlayerComponent extends PositionComponent
   final List<Vector2> trailPoints = [];
   final int maxTrailPoints = 12;
 
-  final List<ui.Image> _freefallFrames = [];
-  final List<ui.Image> _gameOverDelayFrames = [];
+  ui.Image? _freefallSheet;
+  ui.Image? _gameOverDelaySheet;
   ui.Image? _battoujutsuStartImage;
   ui.Image? _battoujutsuEndImage;
   double _animationTimer = 0.0;
   double _gameOverAnimationTimer = 0.0;
   static const double _frameDuration = 0.09;
+  static const int _freefallFrameCount = 6;
+  static const Size _freefallSheetFrameSize = Size(212, 374);
   static const double _gameOverSourceDuration = 8.0;
   static const double _gameOverPlaybackSpeed = 3.0;
   static const int _gameOverDelayFrameCount = 32;
+  static const int _gameOverDelaySheetColumns = 8;
+  static const Size _gameOverSheetFrameSize = Size(212, 374);
   static const double gameOverFrameDuration =
       _gameOverSourceDuration /
       _gameOverDelayFrameCount /
@@ -155,12 +120,8 @@ class PlayerComponent extends PositionComponent
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    _freefallFrames.addAll(
-      await Future.wait(_freefallFramePaths.map(game.images.load)),
-    );
-    _gameOverDelayFrames.addAll(
-      await Future.wait(_gameOverDelayFramePaths.map(game.images.load)),
-    );
+    _freefallSheet = await game.images.load(_freefallSheetPath);
+    _gameOverDelaySheet = await game.images.load(_gameOverDelaySheetPath);
     _battoujutsuStartImage = await game.images.load(_battoujutsuStartPath);
     _battoujutsuEndImage = await game.images.load(_battoujutsuEndPath);
     resetToBasePosition();
@@ -172,6 +133,20 @@ class PlayerComponent extends PositionComponent
 
   @visibleForTesting
   static Size get freefallSpriteDrawSize => _spriteDrawSize;
+
+  @visibleForTesting
+  static int get freefallFrameCount => _freefallFrameCount;
+
+  @visibleForTesting
+  static Rect freefallSourceRectForFrame(int frameIndex) {
+    final clampedIndex = frameIndex.clamp(0, _freefallFrameCount - 1);
+    return Rect.fromLTWH(
+      clampedIndex * _freefallSheetFrameSize.width,
+      0,
+      _freefallSheetFrameSize.width,
+      _freefallSheetFrameSize.height,
+    );
+  }
 
   void resetToBasePosition() {
     position = Vector2(game.size.x / 2, baseYForViewportHeight(game.size.y));
@@ -220,7 +195,20 @@ class PlayerComponent extends PositionComponent
   @visibleForTesting
   static int gameOverDelayFrameIndexForElapsed(double elapsed) {
     final frameIndex = (elapsed / gameOverFrameDuration).floor();
-    return frameIndex.clamp(0, _gameOverDelayFramePaths.length - 1);
+    return frameIndex.clamp(0, _gameOverDelayFrameCount - 1);
+  }
+
+  @visibleForTesting
+  static Rect gameOverDelaySourceRectForFrame(int frameIndex) {
+    final clampedIndex = frameIndex.clamp(0, _gameOverDelayFrameCount - 1);
+    final column = clampedIndex % _gameOverDelaySheetColumns;
+    final row = clampedIndex ~/ _gameOverDelaySheetColumns;
+    return Rect.fromLTWH(
+      column * _gameOverSheetFrameSize.width,
+      row * _gameOverSheetFrameSize.height,
+      _gameOverSheetFrameSize.width,
+      _gameOverSheetFrameSize.height,
+    );
   }
 
   void startUltimateSequence() {
@@ -840,19 +828,22 @@ class PlayerComponent extends PositionComponent
       }
     }
 
-    if (_freefallFrames.isEmpty) return;
+    final freefallSheet = _freefallSheet;
+    if (freefallSheet == null) return;
 
     if (game.shieldCharges > 0) {
       _drawShieldAura(canvas, Offset(radius, radius));
     }
 
-    if (game.isGameOverPending && _gameOverDelayFrames.isNotEmpty) {
+    final gameOverDelaySheet = _gameOverDelaySheet;
+    if (game.isGameOverPending && gameOverDelaySheet != null) {
       final frameIndex = gameOverDelayFrameIndexForElapsed(
         _gameOverAnimationTimer,
       );
       _drawSpriteImage(
         canvas: canvas,
-        image: _gameOverDelayFrames[frameIndex],
+        image: gameOverDelaySheet,
+        source: gameOverDelaySourceRectForFrame(frameIndex),
         center: Offset(radius, radius),
         drawSize: _spriteDrawSize,
         rotation: 0.0,
@@ -915,10 +906,11 @@ class PlayerComponent extends PositionComponent
     }
 
     final int frameIndex =
-        (_animationTimer / _frameDuration).floor() % _freefallFrames.length;
+        (_animationTimer / _frameDuration).floor() % _freefallFrameCount;
     _drawSpriteImage(
       canvas: canvas,
-      image: _freefallFrames[frameIndex],
+      image: freefallSheet,
+      source: freefallSourceRectForFrame(frameIndex),
       center: Offset(radius, radius),
       drawSize: _spriteDrawSize,
       rotation: 0.0,
@@ -1046,6 +1038,7 @@ class PlayerComponent extends PositionComponent
   void _drawSpriteImage({
     required Canvas canvas,
     required ui.Image image,
+    Rect? source,
     required Offset center,
     required Size drawSize,
     required double rotation,
@@ -1053,12 +1046,9 @@ class PlayerComponent extends PositionComponent
     required bool isDashingTinted,
     double opacity = 1.0,
   }) {
-    final source = Rect.fromLTWH(
-      0,
-      0,
-      image.width.toDouble(),
-      image.height.toDouble(),
-    );
+    final sourceRect =
+        source ??
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
     final destination = Rect.fromCenter(
       center: Offset.zero,
       width: drawSize.width,
@@ -1082,7 +1072,7 @@ class PlayerComponent extends PositionComponent
     if (flipX) {
       canvas.scale(-1, 1);
     }
-    canvas.drawImageRect(image, source, destination, paint);
+    canvas.drawImageRect(image, sourceRect, destination, paint);
     canvas.restore();
   }
 }

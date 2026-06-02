@@ -3,9 +3,9 @@ import '../game/quick_draw_game.dart';
 
 class StartOverlay extends StatefulWidget {
   static const String homeBackgroundAsset =
-      'assets/images/concepts/home_background.png';
+      'assets/images/ui/home_background.png';
   static const String homeTitleAsset =
-      'assets/images/concepts/home_title_battoujutsu.png';
+      'assets/images/ui/home_title_battoujutsu.png';
 
   final QuickDrawGame game;
   const StartOverlay({super.key, required this.game});

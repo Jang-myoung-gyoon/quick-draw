@@ -62,16 +62,28 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/images/concepts/
-    - assets/images/icons/
-    - assets/images/icons/upgrades/
-    - assets/images/targets/
-    - assets/images/sprites/
-    - assets/images/sprites/generated/
-    - assets/images/sprites/video_references/
-    - assets/images/sprites/generated/game_over/
-    - assets/images/sprites/generated/nori_freefall_veo_frames_transparent/
-    - assets/images/sprites/generated/nori_simple_fall_down_v2/
+    - assets/images/ui/home_background.png
+    - assets/images/ui/home_title_battoujutsu.png
+    - assets/images/ui/loading_chase.png
+    - assets/images/icons/upgrades/blade_power.png
+    - assets/images/icons/upgrades/chain_length.png
+    - assets/images/icons/upgrades/chain_strike.png
+    - assets/images/icons/upgrades/critical_chance.png
+    - assets/images/icons/upgrades/energy_efficiency.png
+    - assets/images/icons/upgrades/focus_time.png
+    - assets/images/icons/upgrades/lightfoot_gauge.png
+    - assets/images/icons/upgrades/luck.png
+    - assets/images/icons/upgrades/scroll_recovery.png
+    - assets/images/icons/upgrades/shadow_clone.png
+    - assets/images/icons/upgrades/shield.png
+    - assets/images/targets/target_stage_1.png
+    - assets/images/targets/target_stage_2.png
+    - assets/images/targets/target_stage_3.png
+    - assets/images/sprites/enemies/sheets/squirrel_laser_idle_sheet.png
+    - assets/images/sprites/player/actions/nori_dash_start.png
+    - assets/images/sprites/player/actions/nori_slash_end.png
+    - assets/images/sprites/player/sheets/nori_freefall_sheet.png
+    - assets/images/sprites/player/sheets/nori_game_over_collapse_sheet.png
     - assets/audio/elevenlabs/
     - assets/audio/gemini_bgm/
 
