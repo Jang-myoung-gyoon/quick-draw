@@ -14,6 +14,41 @@ const List<String> _freefallFramePaths = [
   'sprites/generated/nori_freefall_veo_frames_transparent/nori_freefall_veo_06.png',
 ];
 
+const List<String> _gameOverDelayFramePaths = [
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_001.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_002.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_003.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_004.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_005.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_006.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_007.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_008.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_009.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_010.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_011.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_012.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_013.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_014.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_015.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_016.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_017.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_018.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_019.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_020.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_021.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_022.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_023.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_024.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_025.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_026.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_027.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_028.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_029.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_030.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_031.png',
+  'sprites/generated/nori_simple_fall_down_v2/nori_simple_fall_down_v2_032.png',
+];
+
 const String _battoujutsuStartPath =
     'sprites/video_references/nori_air_battoujutsu_dash_start_from_freefall_transparent.png';
 const String _battoujutsuEndPath =
@@ -78,10 +113,19 @@ class PlayerComponent extends PositionComponent
   final int maxTrailPoints = 12;
 
   final List<ui.Image> _freefallFrames = [];
+  final List<ui.Image> _gameOverDelayFrames = [];
   ui.Image? _battoujutsuStartImage;
   ui.Image? _battoujutsuEndImage;
   double _animationTimer = 0.0;
+  double _gameOverAnimationTimer = 0.0;
   static const double _frameDuration = 0.09;
+  static const double _gameOverSourceDuration = 8.0;
+  static const double _gameOverPlaybackSpeed = 3.0;
+  static const int _gameOverDelayFrameCount = 32;
+  static const double gameOverFrameDuration =
+      _gameOverSourceDuration /
+      _gameOverDelayFrameCount /
+      _gameOverPlaybackSpeed;
   static const Size _spriteDrawSize = Size(105.6, 187);
   static const Size _battoujutsuDrawSize = Size(144, 216);
   static const double _baseViewportHeightFactor = 2 / 3;
@@ -113,6 +157,9 @@ class PlayerComponent extends PositionComponent
     await super.onLoad();
     _freefallFrames.addAll(
       await Future.wait(_freefallFramePaths.map(game.images.load)),
+    );
+    _gameOverDelayFrames.addAll(
+      await Future.wait(_gameOverDelayFramePaths.map(game.images.load)),
     );
     _battoujutsuStartImage = await game.images.load(_battoujutsuStartPath);
     _battoujutsuEndImage = await game.images.load(_battoujutsuEndPath);
@@ -153,6 +200,27 @@ class PlayerComponent extends PositionComponent
     _ultimateSlashStart = Vector2.zero();
     _ultimateSlashEnd = Vector2.zero();
     trailPoints.clear();
+  }
+
+  void startGameOverDelayAnimation() {
+    _gameOverAnimationTimer = 0.0;
+    _hurtTimer = 0.0;
+    isDashing = false;
+    _isScrollingBack = false;
+    _isPerformingUltimate = false;
+    _dashWaypoints = [];
+    _currentTargetIndex = 0;
+    _scheduledSlashes.clear();
+    trailPoints.clear();
+  }
+
+  @visibleForTesting
+  static int get gameOverDelayFrameCount => _gameOverDelayFrameCount;
+
+  @visibleForTesting
+  static int gameOverDelayFrameIndexForElapsed(double elapsed) {
+    final frameIndex = (elapsed / gameOverFrameDuration).floor();
+    return frameIndex.clamp(0, _gameOverDelayFramePaths.length - 1);
   }
 
   void startUltimateSequence() {
@@ -289,6 +357,9 @@ class PlayerComponent extends PositionComponent
   void update(double dt) {
     super.update(dt);
     _animationTimer += dt;
+    if (game.isGameOverPending) {
+      _gameOverAnimationTimer += dt;
+    }
 
     // Save trail point
     trailPoints.add(position.clone());
@@ -773,6 +844,22 @@ class PlayerComponent extends PositionComponent
 
     if (game.shieldCharges > 0) {
       _drawShieldAura(canvas, Offset(radius, radius));
+    }
+
+    if (game.isGameOverPending && _gameOverDelayFrames.isNotEmpty) {
+      final frameIndex = gameOverDelayFrameIndexForElapsed(
+        _gameOverAnimationTimer,
+      );
+      _drawSpriteImage(
+        canvas: canvas,
+        image: _gameOverDelayFrames[frameIndex],
+        center: Offset(radius, radius),
+        drawSize: _spriteDrawSize,
+        rotation: 0.0,
+        flipX: false,
+        isDashingTinted: false,
+      );
+      return;
     }
 
     final isChaining = game.currentChainPoints.isNotEmpty && !isDashing;

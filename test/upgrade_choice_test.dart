@@ -329,14 +329,32 @@ void main() {
     final levelSixRequirement = game.experienceRequiredForCharacterLevel;
 
     expect(levelOneRequirement, 6);
-    expect(levelTwoRequirement, 9);
-    expect(levelSixRequirement, 41);
+    expect(levelTwoRequirement, 12);
+    expect(levelSixRequirement, 76);
     expect(levelTwoRequirement, greaterThan(levelOneRequirement));
     expect(levelSixRequirement, greaterThan(levelTwoRequirement));
     expect(
       levelSixRequirement - levelTwoRequirement,
       greaterThan(levelTwoRequirement - levelOneRequirement),
     );
+  });
+
+  test('higher stage targets grant more character experience', () {
+    final game = QuickDrawGame();
+    final basicTarget = SlashTarget();
+    final durableTarget = SlashTarget(durability: 3);
+
+    game.stageLevel = 1;
+    expect(game.experienceRewardForTarget(basicTarget), 1);
+    expect(game.experienceRewardForTarget(durableTarget), 3);
+
+    game.stageLevel = 6;
+    expect(game.experienceRewardForTarget(basicTarget), 2);
+    expect(game.experienceRewardForTarget(durableTarget), 5);
+
+    game.stageLevel = 20;
+    expect(game.experienceRewardForTarget(basicTarget), 3);
+    expect(game.experienceRewardForTarget(durableTarget), 8);
   });
 
   test('shield absorbs one obstacle hit without health damage', () {
@@ -726,7 +744,7 @@ void main() {
 
     game.collectPendingTargetExperience(animate: false);
 
-    expect(game.experience, closeTo(12 / 41, 0.0001));
+    expect(game.experience, closeTo(12 / 76, 0.0001));
     expect(game.characterLevel, 6);
   });
 
@@ -973,7 +991,17 @@ void main() {
     expect(resumedPosition.y, closeTo(pausedPosition.y + 240, 0.001));
   });
 
-  test('shard absorb sounds play at sixty percent sfx volume', () {
+  test('default audio levels start at balanced volume', () {
+    final game = QuickDrawGame();
+
+    expect(game.masterVolume, 0.5);
+    expect(game.bgmVolume, 0.7);
+    expect(game.sfxVolume, 1.0);
+    expect(game.effectiveBgmVolume, closeTo(0.35, 0.0001));
+    expect(game.effectiveSfxVolume, closeTo(0.5, 0.0001));
+  });
+
+  test('sound volume multipliers balance UI and shard sounds', () {
     final game = QuickDrawGame()
       ..masterVolume = 0.8
       ..sfxVolume = 0.5;
@@ -1188,6 +1216,24 @@ void main() {
 
   test('slash dash movement speed is thirty percent faster', () {
     expect(PlayerComponent.dashSpeed, closeTo(5590.0, 0.001));
+  });
+
+  test('game over delay animation uses 32 frames at triple speed', () {
+    expect(PlayerComponent.gameOverDelayFrameCount, 32);
+    expect(PlayerComponent.gameOverFrameDuration, closeTo(1 / 12, 0.0001));
+    expect(PlayerComponent.gameOverDelayFrameIndexForElapsed(0), 0);
+    expect(
+      PlayerComponent.gameOverDelayFrameIndexForElapsed(
+        PlayerComponent.gameOverFrameDuration * 12,
+      ),
+      12,
+    );
+    expect(
+      PlayerComponent.gameOverDelayFrameIndexForElapsed(
+        QuickDrawGame.gameOverDelayDuration,
+      ),
+      31,
+    );
   });
 
   test('slash dash easing keeps duration but makes the middle fastest', () {
@@ -1456,6 +1502,74 @@ void main() {
 
     expect(game.isGameOver, isTrue);
     expect(game.lastRequestedSoundForTest, GameSound.gameOver);
+  });
+
+  test('energy depletion delays game over by three seconds', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..health = 0.001
+      ..passiveDrainRate = 1.0
+      ..player = PlayerComponent();
+    game.onGameResize(Vector2(400, 800));
+
+    game.update(0.016);
+
+    expect(game.health, 0.0);
+    expect(game.isGameOverPending, isTrue);
+    expect(game.isGameOver, isFalse);
+    expect(game.isPlaying, isTrue);
+
+    game.update(2.99);
+
+    expect(game.isGameOver, isFalse);
+
+    game.update(0.02);
+
+    expect(game.isGameOverPending, isFalse);
+    expect(game.isGameOver, isTrue);
+    expect(game.isPlaying, isFalse);
+    expect(game.lastRequestedSoundForTest, GameSound.gameOver);
+  });
+
+  test('lethal obstacle hit also delays game over', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..health = 0.2
+      ..player = PlayerComponent();
+    game.onGameResize(Vector2(400, 800));
+
+    game.triggerObstacleHit(Vector2(200, 300));
+
+    expect(game.health, 0.0);
+    expect(game.isGameOverPending, isTrue);
+    expect(game.isGameOver, isFalse);
+  });
+
+  test('shards stop chasing the player during game over delay', () async {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..player = (PlayerComponent()..position = Vector2(360, 360));
+    game.onGameResize(Vector2(400, 800));
+    final energyShard = EnergyShard(position: Vector2(40, 40));
+    final experienceEmitter = ExperienceShardEmitter(
+      origins: [Vector2(60, 60)],
+      burstDirection: Vector2(0, 1),
+    );
+    await game.add(energyShard);
+    await game.add(experienceEmitter);
+    game.processLifecycleEvents();
+
+    energyShard.update(0.4);
+    experienceEmitter.update(0.4);
+    final energyBefore = energyShard.position.clone();
+    final experienceBefore = experienceEmitter.shardPositionsForTest.single;
+
+    game.beginDelayedGameOver();
+    energyShard.update(0.2);
+    experienceEmitter.update(0.2);
+
+    expect(energyShard.position, energyBefore);
+    expect(experienceEmitter.shardPositionsForTest.single, experienceBefore);
   });
 
   test('starting a new game clears lingering gameplay effects', () async {

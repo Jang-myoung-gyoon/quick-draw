@@ -5,6 +5,8 @@ import 'package:quick_draw/components/target.dart';
 import 'package:quick_draw/game/quick_draw_game.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('counts only screen-visible objects toward the spawn target', () {
     final game = QuickDrawGame();
     game.onGameResize(Vector2(400, 800));

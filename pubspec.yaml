@@ -65,9 +65,13 @@ flutter:
     - assets/images/concepts/
     - assets/images/icons/
     - assets/images/icons/upgrades/
+    - assets/images/targets/
     - assets/images/sprites/
+    - assets/images/sprites/generated/
     - assets/images/sprites/video_references/
+    - assets/images/sprites/generated/game_over/
     - assets/images/sprites/generated/nori_freefall_veo_frames_transparent/
+    - assets/images/sprites/generated/nori_simple_fall_down_v2/
     - assets/audio/elevenlabs/
     - assets/audio/gemini_bgm/
 

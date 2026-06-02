@@ -3,6 +3,7 @@ part of 'quick_draw_game.dart';
 extension QuickDrawGameInput on QuickDrawGame {
   void handleTapDown(TapDownEvent event) {
     if (!isPlaying) return;
+    if (isGameOverPending) return;
 
     if (!player.isDashing) {
       addToChain(event.localPosition);
@@ -11,6 +12,7 @@ extension QuickDrawGameInput on QuickDrawGame {
 
   // Chain Management
   void addToChain(Vector2 tapPos) {
+    if (isGameOverPending) return;
     if (currentChainPoints.length >= maxChainLength || player.isDashing) return;
 
     currentChainPoints.add(tapPos);
@@ -133,6 +135,7 @@ extension QuickDrawGameInput on QuickDrawGame {
     _pendingExperienceHits = 0;
     _pendingLaserAttackOrigins.clear();
     _spawnsSinceLastBonus = 0;
+    _gameOverDelayTimer = 0.0;
     totalAltitude = 0.0;
 
     clearGameplayComponents();
@@ -154,8 +157,16 @@ extension QuickDrawGameInput on QuickDrawGame {
     spawnInitialObjects();
   }
 
+  void beginDelayedGameOver() {
+    if (isGameOver || isGameOverPending) return;
+    resetChain();
+    player.startGameOverDelayAnimation();
+    _gameOverDelayTimer = QuickDrawGame.gameOverDelayDuration;
+  }
+
   void gameOver() {
     if (isGameOver) return;
+    _gameOverDelayTimer = 0.0;
     isPlaying = false;
     isGameOver = true;
 

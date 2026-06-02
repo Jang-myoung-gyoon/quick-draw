@@ -11,8 +11,9 @@ extension QuickDrawGameShards on QuickDrawGame {
     combo++;
     shakeIntensity = min(shakeIntensity + 10.0, 25.0);
     if (target != null) {
-      _pendingExperienceHits += target.experienceValue;
-      spawnExperienceShards(hitPoint, target.experienceValue);
+      final experienceReward = experienceRewardForTarget(target);
+      _pendingExperienceHits += experienceReward;
+      spawnExperienceShards(hitPoint, experienceReward);
       if (target is LaserTarget) {
         spawnEnergyShards(hitPoint, target.durability);
       }
@@ -95,7 +96,7 @@ extension QuickDrawGameShards on QuickDrawGame {
 
     if (health <= 0) {
       health = 0.0;
-      gameOver();
+      beginDelayedGameOver();
     }
     return false;
   }

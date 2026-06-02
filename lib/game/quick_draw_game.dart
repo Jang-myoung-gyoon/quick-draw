@@ -53,6 +53,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   bool isPlaying = false;
   bool isGameOver = false;
   bool isChoosingUpgrade = false;
+  double _gameOverDelayTimer = 0.0;
   int score = 0;
   int combo = 0;
 
@@ -105,6 +106,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   GameLanguage language = GameLanguage.ko;
   GameText get text => GameText(language);
   bool get isGameplayPausedForUi => isChoosingUpgrade || paused;
+  bool get isGameOverPending => _gameOverDelayTimer > 0;
 
   // Chain variables (now using raw screen coordinates instead of targets)
   final List<Vector2> currentChainPoints = [];
@@ -140,7 +142,20 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
   int get experienceRequiredForCharacterLevel {
     final levelRamp = characterLevel - 1;
-    return 4 + characterLevel * 2 + levelRamp * levelRamp;
+    return 6 + levelRamp * 4 + levelRamp * levelRamp * 2;
+  }
+
+  double experienceRewardMultiplierForStage(int level) {
+    final stageRamp = max(0, level - 1);
+    return min(2.5, 1.0 + stageRamp * 0.12);
+  }
+
+  int experienceRewardForTarget(SlashTarget target) {
+    return max(
+      target.experienceValue,
+      (target.experienceValue * experienceRewardMultiplierForStage(stageLevel))
+          .round(),
+    );
   }
 
   int get turnsRequiredForNextStage => 5;
@@ -183,9 +198,10 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   static const double rareUpgradeChance = 0.1;
   static const double lightfootGaugeDistance = 24000.0;
   static const double upgradeInputLockDuration = 0.7;
+  static const double gameOverDelayDuration = 3.0;
   double _replacementSpawnScrollPixels = 0.0;
-  double masterVolume = 1.0;
-  double bgmVolume = 0.45;
+  double masterVolume = 0.5;
+  double bgmVolume = 0.7;
   double sfxVolume = 1.0;
   bool masterMuted = false;
   bool bgmMuted = false;
@@ -348,12 +364,21 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
     if (!isPlaying) return;
 
+    if (isGameOverPending) {
+      _gameOverDelayTimer = max(0.0, _gameOverDelayTimer - dt);
+      if (_gameOverDelayTimer == 0.0) {
+        gameOver();
+      }
+      return;
+    }
+
     // Passive energy decay when not dashing
     if (!player.isDashing) {
       health -= passiveDrainRate * inputDrainMultiplier * adjustedDt;
       if (health <= 0) {
         health = 0.0;
-        gameOver();
+        beginDelayedGameOver();
+        return;
       }
     }
 

@@ -8,6 +8,8 @@ import 'package:quick_draw/components/target.dart';
 import 'package:quick_draw/game/quick_draw_game.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('durability requires separate rearmed hits to slice', () {
     final target = SlashTarget(durability: 2);
     final hitPosition = Vector2(100, 100);
@@ -91,6 +93,37 @@ void main() {
     expect(target.experienceValue, target.durability * 3);
   });
 
+  test('laser target sprite animation uses eight frames over two seconds', () {
+    final target = LaserTarget(maxStageDurability: 7);
+
+    expect(LaserTarget.spriteAnimationFramePaths, hasLength(8));
+    expect(LaserTarget.spriteAnimationDuration, 2.0);
+    expect(LaserTarget.spriteFrameStepTime, closeTo(0.25, 0.0001));
+    expect(target.size.x, closeTo(LaserTarget.laserDrawSize, 0.0001));
+    expect(target.size.y, closeTo(LaserTarget.laserDrawSize, 0.0001));
+    expect(target.pathHitRadius, LaserTarget.laserHitRadius);
+    expect(
+      target.currentSliceSpritePath,
+      LaserTarget.spriteAnimationFramePaths.first,
+    );
+  });
+
+  test('laser target health bar segments follow required hit count', () {
+    final target = LaserTarget(maxStageDurability: 7, durability: 10);
+
+    expect(target.healthBarSegmentCountForAttackPower(2), 5);
+    expect(target.filledHealthBarSegmentsForAttackPower(2), 5);
+
+    target.hit(Vector2.zero(), attackPower: 2);
+    expect(target.remainingDurability, 8);
+    expect(target.filledHealthBarSegmentsForAttackPower(2), 4);
+
+    target.rearmDamageIfFarFrom(Vector2(SlashTarget.damageRearmDistance, 0));
+    target.hit(Vector2(SlashTarget.damageRearmDistance, 0), attackPower: 2);
+    expect(target.remainingDurability, 6);
+    expect(target.filledHealthBarSegmentsForAttackPower(2), 3);
+  });
+
   test('laser targets only miss below the screen', () {
     final game = QuickDrawGame();
     game.onGameResize(Vector2(400, 800));
@@ -109,10 +142,21 @@ void main() {
     final weakTarget = SlashTarget(durability: 1);
     final strongTarget = SlashTarget(durability: 4);
 
-    expect(weakTarget.size.x, 72);
-    expect(weakTarget.size.y, 72);
+    expect(weakTarget.size.x, closeTo(SlashTarget.targetDrawSize, 0.0001));
+    expect(weakTarget.size.y, closeTo(SlashTarget.targetDrawSize, 0.0001));
     expect(weakTarget.pathHitRadius, 60);
     expect(strongTarget.pathHitRadius, 60);
+  });
+
+  test('target rotation speed is randomized in either direction', () {
+    final clockwise = SlashTarget.randomSignedRotationSpeed(random: Random(0));
+    final counterClockwise = SlashTarget.randomSignedRotationSpeed(
+      random: Random(1),
+    );
+
+    expect(clockwise.abs(), inInclusiveRange(0.35, 1.2));
+    expect(counterClockwise.abs(), inInclusiveRange(0.35, 1.2));
+    expect(clockwise.sign, isNot(counterClockwise.sign));
   });
 
   test('target color follows hits required by current attack power', () {
@@ -132,6 +176,34 @@ void main() {
 
     expect(target.hit(hitPosition), TargetHitOutcome.damaged);
     expect(target.coreColor, const Color(0xFF00E5FF));
+  });
+
+  test('target sprite follows hits required by current attack power', () {
+    final target = SlashTarget(durability: 3);
+    final hitPosition = Vector2(100, 100);
+
+    expect(target.stageForAttackPower(1), 3);
+    expect(
+      target.targetSpritePathForAttackPower(1),
+      SlashTarget.stageThreeSpritePath,
+    );
+    expect(target.stageForAttackPower(2), 2);
+    expect(
+      target.targetSpritePathForAttackPower(2),
+      SlashTarget.stageTwoSpritePath,
+    );
+    expect(target.stageForAttackPower(3), 1);
+    expect(
+      target.targetSpritePathForAttackPower(3),
+      SlashTarget.stageOneSpritePath,
+    );
+
+    expect(target.hit(hitPosition), TargetHitOutcome.damaged);
+    expect(target.stageForAttackPower(1), 2);
+    expect(
+      target.targetSpritePathForAttackPower(1),
+      SlashTarget.stageTwoSpritePath,
+    );
   });
 
   test(

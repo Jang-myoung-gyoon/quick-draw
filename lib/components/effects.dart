@@ -195,6 +195,9 @@ class ExperienceShardEmitter extends Component
 
     _timer += dt;
     final progress = (_timer / duration).clamp(0.0, 1.0);
+    if (game.isGameOverPending) {
+      return;
+    }
     final target = game.player.position.clone();
 
     for (var i = 0; i < _positions.length; i++) {

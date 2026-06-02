@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flame/components.dart';
+import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
 import '../game/quick_draw_game.dart';
 
@@ -97,9 +98,13 @@ abstract class FloatingObject extends PositionComponent
 }
 
 class SlashTarget extends FloatingObject {
+  static const String stageOneSpritePath = 'targets/target_stage_1.png';
+  static const String stageTwoSpritePath = 'targets/target_stage_2.png';
+  static const String stageThreeSpritePath = 'targets/target_stage_3.png';
   static const int defaultPlayerAttackPower = 1;
   static const double damageRearmDistance = 64.0;
   static const double hitRadius = 60.0;
+  static const double targetDrawSize = 95.04;
 
   bool isTargeted = false;
   int chainIndex = -1;
@@ -110,10 +115,26 @@ class SlashTarget extends FloatingObject {
   Vector2? _chainStrikeDestination;
   double _chainStrikeMoveTimer = 0.0;
   double _chainStrikeMoveDuration = 0.0;
+  double _spriteAngle = 0.0;
+  double _spriteRotationSpeed = 0.0;
 
   SlashTarget({this.durability = 1}) {
     remainingDurability = durability;
-    size = Vector2(72, 72);
+    size = Vector2.all(targetDrawSize);
+  }
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    _spriteAngle = Random().nextDouble() * 2 * pi;
+    _spriteRotationSpeed = randomSignedRotationSpeed();
+  }
+
+  @visibleForTesting
+  static double randomSignedRotationSpeed({Random? random}) {
+    final rng = random ?? Random();
+    final direction = rng.nextBool() ? 1.0 : -1.0;
+    return direction * (0.35 + rng.nextDouble() * 0.85);
   }
 
   int get _effectivePlayerAttackPower =>
@@ -140,6 +161,21 @@ class SlashTarget extends FloatingObject {
 
   Color get coreColor => coreColorForAttackPower(_effectivePlayerAttackPower);
 
+  int stageForAttackPower(int attackPower) {
+    return min(3, hitsToDestroyForAttackPower(attackPower));
+  }
+
+  String targetSpritePathForAttackPower(int attackPower) {
+    return switch (stageForAttackPower(attackPower)) {
+      1 => stageOneSpritePath,
+      2 => stageTwoSpritePath,
+      _ => stageThreeSpritePath,
+    };
+  }
+
+  String get targetSpritePath =>
+      targetSpritePathForAttackPower(_effectivePlayerAttackPower);
+
   bool get isDamageRearmed {
     return _lastDamagePosition == null;
   }
@@ -154,6 +190,7 @@ class SlashTarget extends FloatingObject {
   @override
   void update(double dt) {
     super.update(dt);
+    _spriteAngle += _spriteRotationSpeed * dt;
     advanceChainStrikeMove(dt);
 
     final lastDamagePosition = _lastDamagePosition;
@@ -207,17 +244,24 @@ class SlashTarget extends FloatingObject {
 
     final double radius = size.x / 2;
     final color = coreColor;
+    final usedSprite = renderTargetSprite(canvas);
 
     if (isTargeted) {
       // Targeted glow ring
       _targetPaint.color = color.withValues(alpha: opacity);
       canvas.drawCircle(Offset(radius, radius), radius + 8, _targetPaint);
 
-      // Core targeted orb
-      final targetedCorePaint = Paint()
-        ..color = color.withValues(alpha: opacity);
-      canvas.drawCircle(Offset(radius, radius), radius - 6, targetedCorePaint);
-    } else {
+      if (!usedSprite) {
+        // Core targeted orb
+        final targetedCorePaint = Paint()
+          ..color = color.withValues(alpha: opacity);
+        canvas.drawCircle(
+          Offset(radius, radius),
+          radius - 6,
+          targetedCorePaint,
+        );
+      }
+    } else if (!usedSprite) {
       // Neon durability orb
       final glowPaint = Paint()
         ..color = color.withValues(alpha: opacity * 0.3)
@@ -235,6 +279,33 @@ class SlashTarget extends FloatingObject {
     }
 
     _drawDurabilityText(canvas, radius);
+  }
+
+  bool renderTargetSprite(Canvas canvas) {
+    if (runtimeType != SlashTarget ||
+        !game.images.containsKey(targetSpritePath)) {
+      return false;
+    }
+
+    final image = game.images.fromCache(targetSpritePath);
+    final source = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final destination = Rect.fromLTWH(0, 0, size.x, size.y);
+    final paint = Paint()
+      ..filterQuality = FilterQuality.high
+      ..color = Colors.white.withValues(alpha: opacity);
+
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+    canvas.rotate(_spriteAngle);
+    canvas.translate(-size.x / 2, -size.y / 2);
+    canvas.drawImageRect(image, source, destination, paint);
+    canvas.restore();
+    return true;
   }
 
   void _drawDurabilityText(Canvas canvas, double radius) {
@@ -290,6 +361,9 @@ class SlashTarget extends FloatingObject {
   void slice(Vector2 hitPoint, double sliceAngle) {
     // Create particle sparks at the hit point
     game.spawnSliceParticles(hitPoint, coreColor);
+    final slicedSpritePath = runtimeType == SlashTarget
+        ? targetSpritePath
+        : null;
 
     // Spawn sliced halves starting from the hit point
     final leftHalf = SlicedHalfComponent(
@@ -297,12 +371,16 @@ class SlashTarget extends FloatingObject {
       angle: sliceAngle,
       isLeft: true,
       color: coreColor,
+      spritePath: slicedSpritePath,
+      spriteAngle: _spriteAngle,
     );
     final rightHalf = SlicedHalfComponent(
       position: hitPoint.clone(),
       angle: sliceAngle,
       isLeft: false,
       color: coreColor,
+      spritePath: slicedSpritePath,
+      spriteAngle: _spriteAngle,
     );
 
     game.add(leftHalf);
@@ -321,17 +399,49 @@ class SlashTarget extends FloatingObject {
 }
 
 class LaserTarget extends SlashTarget {
+  static const double laserDrawSize = 98.9;
+  static const double laserHitRadius = 69.0;
+  static const List<String> spriteAnimationFramePaths = [
+    'sprites/generated/squirrel_spaceship_laser_idle_transparent_001.png',
+    'sprites/generated/squirrel_spaceship_laser_idle_transparent_002.png',
+    'sprites/generated/squirrel_spaceship_laser_idle_transparent_003.png',
+    'sprites/generated/squirrel_spaceship_laser_idle_transparent_004.png',
+    'sprites/generated/squirrel_spaceship_laser_idle_transparent_005.png',
+    'sprites/generated/squirrel_spaceship_laser_idle_transparent_006.png',
+    'sprites/generated/squirrel_spaceship_laser_idle_transparent_007.png',
+    'sprites/generated/squirrel_spaceship_laser_idle_transparent_008.png',
+  ];
+  static const double spriteAnimationDuration = 2.0;
+  static const double spriteFrameStepTime = 0.25;
+
   static int durabilityForStageMax(int maxStageDurability) =>
       min(20, max(1, (maxStageDurability * 1.3).ceil()));
 
   static int minimumDurabilityForStageMax(int maxStageDurability) =>
       max(1, (durabilityForStageMax(maxStageDurability) * 0.7).ceil());
 
+  SpriteAnimationTicker? _spriteAnimationTicker;
+  final Paint _spritePaint = Paint()..filterQuality = FilterQuality.high;
+
   LaserTarget({required int maxStageDurability, int? durability})
     : super(
         durability: durability ?? durabilityForStageMax(maxStageDurability),
       ) {
-    size = Vector2(86, 86);
+    size = Vector2.all(laserDrawSize);
+  }
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    await game.images.loadAll(spriteAnimationFramePaths);
+    final sprites = [
+      for (final framePath in spriteAnimationFramePaths)
+        Sprite(game.images.fromCache(framePath)),
+    ];
+    _spriteAnimationTicker = SpriteAnimation.spriteList(
+      sprites,
+      stepTime: spriteFrameStepTime,
+    ).createTicker();
   }
 
   @override
@@ -339,6 +449,9 @@ class LaserTarget extends SlashTarget {
 
   @override
   Color coreColorForAttackPower(int attackPower) => const Color(0xFFFF1744);
+
+  @override
+  double get pathHitRadius => laserHitRadius;
 
   @override
   bool shouldRemoveAsMissed() => position.y > game.size.y + size.y;
@@ -353,47 +466,124 @@ class LaserTarget extends SlashTarget {
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
-    final radius = size.x / 2;
-    final center = Offset(radius, radius);
-    final chargePaint = Paint()
-      ..color = const Color(0xFFFF1744).withValues(alpha: opacity * 0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0;
-    canvas.drawCircle(center, radius + 5, chargePaint);
-    _drawOrbitingMarkers(canvas, center, radius);
-    final aperturePaint = Paint()
-      ..color = Colors.white.withValues(alpha: opacity);
-    canvas.drawCircle(Offset(radius, radius + 14), 5, aperturePaint);
+    final usedSprite = _renderLaserSprite(canvas);
+    if (!usedSprite) {
+      super.render(canvas);
+    }
+    _drawSegmentedHealthBar(canvas);
   }
 
-  void _drawOrbitingMarkers(Canvas canvas, Offset center, double radius) {
-    final orbitRadius = radius + 13;
-    final orbitPaint = Paint()
-      ..color = const Color(0xFFFF1744).withValues(alpha: opacity * 0.28)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6;
-    final markerPaint = Paint()
-      ..color = const Color(0xFFFF1744).withValues(alpha: opacity)
-      ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-    final markerCorePaint = Paint()
-      ..color = Colors.white.withValues(alpha: opacity)
-      ..style = PaintingStyle.fill;
+  @override
+  void slice(Vector2 hitPoint, double sliceAngle) {
+    game.spawnSliceParticles(hitPoint, coreColor);
+    final slicedSpritePath = currentSliceSpritePath;
 
-    canvas.drawCircle(center, orbitRadius, orbitPaint);
+    final leftHalf = SlicedHalfComponent(
+      position: hitPoint.clone(),
+      angle: sliceAngle,
+      isLeft: true,
+      color: coreColor,
+      spritePath: slicedSpritePath,
+      drawSize: size.x,
+    );
+    final rightHalf = SlicedHalfComponent(
+      position: hitPoint.clone(),
+      angle: sliceAngle,
+      isLeft: false,
+      color: coreColor,
+      spritePath: slicedSpritePath,
+      drawSize: size.x,
+    );
 
-    final baseAngle = age * 3.8;
-    for (var i = 0; i < 4; i++) {
-      final angle = baseAngle + i * pi / 2;
-      final markerCenter = Offset(
-        center.dx + cos(angle) * orbitRadius,
-        center.dy + sin(angle) * orbitRadius,
-      );
-      final markerSize = i.isEven ? 5.0 : 3.5;
-      canvas.drawCircle(markerCenter, markerSize + 2.5, markerPaint);
-      canvas.drawCircle(markerCenter, markerSize, markerCorePaint);
+    game.add(leftHalf);
+    game.add(rightHalf);
+    removeFromParent();
+  }
+
+  @visibleForTesting
+  String get currentSliceSpritePath {
+    final ticker = _spriteAnimationTicker;
+    if (ticker == null) {
+      return spriteAnimationFramePaths.first;
     }
+    return spriteAnimationFramePaths[ticker.currentIndex];
+  }
+
+  @visibleForTesting
+  int healthBarSegmentCountForAttackPower(int attackPower) {
+    return max(1, (durability / max(1, attackPower)).ceil());
+  }
+
+  @visibleForTesting
+  int filledHealthBarSegmentsForAttackPower(int attackPower) {
+    return max(0, (remainingDurability / max(1, attackPower)).ceil());
+  }
+
+  void _drawSegmentedHealthBar(Canvas canvas) {
+    final attackPower = isMounted
+        ? game.playerAttackPower
+        : SlashTarget.defaultPlayerAttackPower;
+    final segmentCount = healthBarSegmentCountForAttackPower(attackPower);
+    final filledSegments = filledHealthBarSegmentsForAttackPower(attackPower);
+    final barWidth = min(size.x + 22.0, 124.0);
+    const barHeight = 8.0;
+    const gap = 1.5;
+    final left = (size.x - barWidth) / 2;
+    const top = -14.0;
+    final background = RRect.fromRectAndRadius(
+      Rect.fromLTWH(left, top, barWidth, barHeight),
+      const Radius.circular(3),
+    );
+    final backgroundPaint = Paint()
+      ..color = Colors.black.withValues(alpha: opacity * 0.62);
+    final borderPaint = Paint()
+      ..color = Colors.white.withValues(alpha: opacity * 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final fillPaint = Paint()
+      ..color = const Color(0xFFFFD166).withValues(alpha: opacity);
+    final emptyPaint = Paint()
+      ..color = const Color(0xFF4B1020).withValues(alpha: opacity * 0.72);
+
+    canvas.drawRRect(background, backgroundPaint);
+    final segmentWidth = (barWidth - gap * (segmentCount - 1)) / segmentCount;
+    for (var i = 0; i < segmentCount; i++) {
+      final segmentRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          left + i * (segmentWidth + gap),
+          top,
+          segmentWidth,
+          barHeight,
+        ),
+        const Radius.circular(2),
+      );
+      canvas.drawRRect(
+        segmentRect,
+        i < filledSegments ? fillPaint : emptyPaint,
+      );
+    }
+    canvas.drawRRect(background, borderPaint);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _spriteAnimationTicker?.update(dt);
+  }
+
+  bool _renderLaserSprite(Canvas canvas) {
+    final ticker = _spriteAnimationTicker;
+    if (ticker == null) {
+      return false;
+    }
+    _spritePaint.color = Colors.white.withValues(alpha: opacity);
+    ticker.getSprite().render(
+      canvas,
+      position: Vector2.zero(),
+      size: size,
+      overridePaint: _spritePaint,
+    );
+    return true;
   }
 }
 
@@ -432,6 +622,8 @@ class EnergyShard extends PositionComponent
     if (_age < _burstDuration) {
       position.add(_velocity * dt);
       position.y += 46.0 * dt;
+    } else if (game.isGameOverPending) {
+      return;
     } else {
       final target = game.player.position;
       final toTarget = target - position;
@@ -690,9 +882,12 @@ class BonusTarget extends FloatingObject {
   }
 }
 
-class SlicedHalfComponent extends PositionComponent {
+class SlicedHalfComponent extends PositionComponent
+    with HasGameReference<QuickDrawGame> {
   final bool isLeft;
   final Color color;
+  final String? spritePath;
+  final double spriteAngle;
 
   late Vector2 velocity;
   double opacity = 1.0;
@@ -703,10 +898,13 @@ class SlicedHalfComponent extends PositionComponent {
     required double angle,
     required this.isLeft,
     required this.color,
+    this.spritePath,
+    this.spriteAngle = 0.0,
+    double drawSize = SlashTarget.targetDrawSize,
   }) {
     this.position = position;
     this.angle = angle;
-    size = Vector2(48, 48);
+    size = Vector2.all(drawSize);
     anchor = Anchor.center;
 
     // Fly outwards perpendicular to the slice angle
@@ -745,8 +943,13 @@ class SlicedHalfComponent extends PositionComponent {
     super.render(canvas);
 
     final double radius = size.x / 2;
-    final halfPaint = Paint()
-      ..color = color.withValues(alpha: opacity.clamp(0.0, 1.0));
+    final alpha = opacity.clamp(0.0, 1.0);
+    final usedSprite = renderSlicedSprite(canvas, radius, alpha);
+    if (usedSprite) {
+      return;
+    }
+
+    final halfPaint = Paint()..color = color.withValues(alpha: alpha);
 
     // Save state to clip half of the circle
     canvas.save();
@@ -766,11 +969,47 @@ class SlicedHalfComponent extends PositionComponent {
 
     // Faint neon border
     final strokePaint = Paint()
-      ..color = Colors.white.withValues(alpha: opacity.clamp(0.0, 1.0))
+      ..color = Colors.white.withValues(alpha: alpha)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     canvas.drawCircle(Offset.zero, radius - 4, strokePaint);
 
     canvas.restore();
+  }
+
+  bool renderSlicedSprite(Canvas canvas, double radius, double alpha) {
+    final path = spritePath;
+    if (path == null || !game.images.containsKey(path)) {
+      return false;
+    }
+
+    final image = game.images.fromCache(path);
+    final source = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final destination = Rect.fromCenter(
+      center: Offset.zero,
+      width: size.x,
+      height: size.y,
+    );
+    final paint = Paint()
+      ..filterQuality = FilterQuality.high
+      ..color = Colors.white.withValues(alpha: alpha);
+
+    canvas.save();
+    canvas.translate(radius, radius);
+    canvas.rotate(angle);
+    if (isLeft) {
+      canvas.clipRect(Rect.fromLTRB(-radius - 5, -radius - 5, 0, radius + 5));
+    } else {
+      canvas.clipRect(Rect.fromLTRB(0, -radius - 5, radius + 5, radius + 5));
+    }
+    canvas.rotate(spriteAngle);
+    canvas.drawImageRect(image, source, destination, paint);
+    canvas.restore();
+    return true;
   }
 }
