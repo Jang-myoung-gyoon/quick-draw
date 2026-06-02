@@ -7,6 +7,7 @@ import 'package:quick_draw/components/player.dart';
 import 'package:quick_draw/components/target.dart';
 import 'package:quick_draw/game/quick_draw_game.dart';
 import 'package:quick_draw/overlays/achievements_overlay.dart';
+import 'package:quick_draw/overlays/game_over_overlay.dart';
 import 'package:quick_draw/overlays/hud_overlay.dart';
 import 'package:quick_draw/overlays/settings_overlay.dart';
 import 'package:quick_draw/overlays/start_overlay.dart';
@@ -93,24 +94,57 @@ void main() {
     expect(game.playerAttackPower, 2);
   });
 
-  test('critical strike upgrade adds ten percent double damage chance', () {
+  test('critical strike upgrade adds fifteen percent double damage chance', () {
     final game = QuickDrawGame()..playerAttackPower = 3;
 
     game.chooseUpgrade(
       const UpgradeOption(
         type: UpgradeType.criticalStrike,
         title: 'Critical Draw',
-        description: 'Add +10% chance to deal double damage.',
+        description: 'Add +15% chance to deal double damage.',
         color: Color(0xFFFF1744),
       ),
     );
 
     expect(game.criticalStrikeLevel, 1);
-    expect(game.criticalStrikeChance, closeTo(0.10, 0.0001));
-    expect(game.rollSlashDamage(roll: 0.09).damage, 6);
-    expect(game.rollSlashDamage(roll: 0.09).isCritical, isTrue);
-    expect(game.rollSlashDamage(roll: 0.10).damage, 3);
-    expect(game.rollSlashDamage(roll: 0.10).isCritical, isFalse);
+    expect(game.criticalStrikeChance, closeTo(0.15, 0.0001));
+    expect(game.rollSlashDamage(roll: 0.14).damage, 6);
+    expect(game.rollSlashDamage(roll: 0.14).isCritical, isTrue);
+    expect(game.rollSlashDamage(roll: 0.15).damage, 3);
+    expect(game.rollSlashDamage(roll: 0.15).isCritical, isFalse);
+  });
+
+  testWidgets('game over report shows final levels and upgrade progress', (
+    tester,
+  ) async {
+    final game = QuickDrawGame()
+      ..score = 1234
+      ..stageLevel = 7
+      ..characterLevel = 5
+      ..playerAttackPower = 3
+      ..criticalStrikeLevel = 2
+      ..maxChainLength = 4
+      ..shadowCloneLevel = 2
+      ..shieldUnlocked = true;
+
+    await tester.pumpWidget(MaterialApp(home: GameOverOverlay(game: game)));
+
+    expect(find.text(game.text.defeated), findsOneWidget);
+    expect(find.text('1234'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text(game.text.finalReport), findsOneWidget);
+    expect(
+      find.text(game.text.upgradeTitle(UpgradeType.bladePower)),
+      findsOneWidget,
+    );
+    expect(find.text('공격력 3'), findsOneWidget);
+    expect(find.text('30%'), findsOneWidget);
+    expect(
+      find.text(game.text.upgradeTitle(UpgradeType.shield)),
+      findsOneWidget,
+    );
+    expect(find.text('획득'), findsAtLeastNWidgets(1));
   });
 
   test('critical strike upgrade uses the critical icon asset', () {

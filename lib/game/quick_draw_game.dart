@@ -164,7 +164,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
     return max(200, reducedInterval.round());
   }
 
-  double get criticalStrikeChance => min(1.0, criticalStrikeLevel * 0.10);
+  double get criticalStrikeChance => min(1.0, criticalStrikeLevel * 0.15);
   double get laserTargetSpawnChance {
     if (stageLevel < 2) {
       return 0.0;

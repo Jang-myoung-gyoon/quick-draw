@@ -18,6 +18,7 @@ class GameText {
   String get score => isKo ? '점수' : 'SCORE';
   String get defeated => isKo ? '패배' : 'DEFEATED';
   String get finalScore => isKo ? '최종 점수' : 'FINAL SCORE';
+  String get finalReport => isKo ? '최종 리포트' : 'FINAL REPORT';
   String get tryAgain => isKo ? '다시 도전' : 'TRY AGAIN';
   String get upgrade => isKo ? '강화 선택' : 'UPGRADE';
   String get rare => isKo ? '레어' : 'RARE';
@@ -67,7 +68,7 @@ class GameText {
     UpgradeType.bladePower =>
       isKo ? '공격력이 1 증가합니다.' : 'Increase attack power by 1.',
     UpgradeType.criticalStrike =>
-      isKo ? '10% 확률로 2배 피해를 줍니다.' : 'Add +10% chance to deal double damage.',
+      isKo ? '15% 확률로 2배 피해를 줍니다.' : 'Add +15% chance to deal double damage.',
     UpgradeType.chainLength =>
       isKo ? '베기 경로를 하나 더 입력할 수 있습니다.' : 'Add one more slash waypoint.',
     UpgradeType.scrollRecovery =>
