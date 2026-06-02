@@ -45,6 +45,8 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
       'quick_draw.achievements.selected_upgrades';
   static const String _achievementMaxedUpgradesKey =
       'quick_draw.achievements.maxed_upgrades';
+  static const String _achievementAcknowledgedKey =
+      'quick_draw.achievements.acknowledged';
 
   FallingBackground? background;
   late PlayerComponent player;
@@ -91,6 +93,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   int bestScore = 0;
   final Set<UpgradeType> selectedUpgradeAchievements = {};
   final Set<UpgradeType> maxedUpgradeAchievements = {};
+  final Set<String> acknowledgedAchievementIds = {};
   final Set<String> _announcedAchievementIds = {'stage-1', 'character-1'};
   final List<String> _achievementToastQueue = [];
   final ValueNotifier<int> achievementRevision = ValueNotifier<int>(0);
@@ -224,19 +227,36 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   static List<Achievement> visibleAchievementsFrom(
-    List<Achievement> achievements,
-  ) {
+    List<Achievement> achievements, {
+    Set<String> acknowledgedAchievementIds = const {},
+  }) {
     return [
-      ...visibleUpgradeAchievementsFrom(achievements),
-      visibleProgressAchievementFrom(achievements, AchievementGroup.stage),
-      visibleProgressAchievementFrom(achievements, AchievementGroup.character),
-      visibleProgressAchievementFrom(achievements, AchievementGroup.score),
+      ...visibleUpgradeAchievementsFrom(
+        achievements,
+        acknowledgedAchievementIds: acknowledgedAchievementIds,
+      ),
+      visibleProgressAchievementFrom(
+        achievements,
+        AchievementGroup.stage,
+        acknowledgedAchievementIds: acknowledgedAchievementIds,
+      ),
+      visibleProgressAchievementFrom(
+        achievements,
+        AchievementGroup.character,
+        acknowledgedAchievementIds: acknowledgedAchievementIds,
+      ),
+      visibleProgressAchievementFrom(
+        achievements,
+        AchievementGroup.score,
+        acknowledgedAchievementIds: acknowledgedAchievementIds,
+      ),
     ].whereType<Achievement>().toList(growable: false);
   }
 
   static List<Achievement> visibleUpgradeAchievementsFrom(
-    List<Achievement> achievements,
-  ) {
+    List<Achievement> achievements, {
+    Set<String> acknowledgedAchievementIds = const {},
+  }) {
     final visible = <Achievement>[];
     for (final type in UpgradeType.values) {
       final steps = achievements
@@ -248,7 +268,11 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
         continue;
       }
       visible.add(
-        steps.firstWhere((step) => !step.unlocked, orElse: () => steps.last),
+        steps.firstWhere(
+          (step) =>
+              !step.unlocked || !acknowledgedAchievementIds.contains(step.id),
+          orElse: () => steps.last,
+        ),
       );
     }
     return visible;
@@ -256,15 +280,19 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
 
   static Achievement? visibleProgressAchievementFrom(
     List<Achievement> achievements,
-    AchievementGroup group,
-  ) {
+    AchievementGroup group, {
+    Set<String> acknowledgedAchievementIds = const {},
+  }) {
     final steps = achievements
         .where((achievement) => achievement.group == group)
         .toList(growable: false);
     if (steps.isEmpty) {
       return null;
     }
-    return steps.firstWhere((step) => !step.unlocked, orElse: () => steps.last);
+    return steps.firstWhere(
+      (step) => !step.unlocked || !acknowledgedAchievementIds.contains(step.id),
+      orElse: () => steps.last,
+    );
   }
 
   final Map<GameSound, Future<AudioPool>> _soundPools = {};

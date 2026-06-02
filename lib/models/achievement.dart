@@ -6,6 +6,7 @@ class Achievement {
   final String description;
   final AchievementGroup group;
   final bool unlocked;
+  final bool acknowledged;
   final double progress;
 
   const Achievement({
@@ -14,6 +15,7 @@ class Achievement {
     required this.description,
     required this.group,
     required this.unlocked,
+    this.acknowledged = false,
     required this.progress,
   });
 }

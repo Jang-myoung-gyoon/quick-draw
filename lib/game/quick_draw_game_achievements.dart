@@ -58,7 +58,27 @@ extension QuickDrawGameAchievements on QuickDrawGame {
   }
 
   List<Achievement> visibleAchievementsForDisplay() {
-    return QuickDrawGame.visibleAchievementsFrom(achievementsForDisplay());
+    return QuickDrawGame.visibleAchievementsFrom(
+      achievementsForDisplay(),
+      acknowledgedAchievementIds: acknowledgedAchievementIds,
+    );
+  }
+
+  void acknowledgeAchievement(String id) {
+    Achievement? achievement;
+    for (final item in achievementsForDisplay()) {
+      if (item.id == id) {
+        achievement = item;
+        break;
+      }
+    }
+    if (achievement == null || !achievement.unlocked) {
+      return;
+    }
+    if (acknowledgedAchievementIds.add(id)) {
+      achievementRevision.value++;
+      persistAchievementProgressIfLoaded();
+    }
   }
 
   void enqueueNewlyUnlockedAchievementToasts() {
@@ -98,6 +118,9 @@ extension QuickDrawGameAchievements on QuickDrawGame {
               description: t.selectedAchievementDescription,
               group: AchievementGroup.upgrade,
               unlocked: selectedUpgradeAchievements.contains(type),
+              acknowledged: acknowledgedAchievementIds.contains(
+                'upgrade-${type.name}-selected',
+              ),
               progress: selectedUpgradeAchievements.contains(type) ? 1.0 : 0.0,
             ),
             Achievement(
@@ -106,6 +129,9 @@ extension QuickDrawGameAchievements on QuickDrawGame {
               description: t.masteredAchievementDescription,
               group: AchievementGroup.upgrade,
               unlocked: maxedUpgradeAchievements.contains(type),
+              acknowledged: acknowledgedAchievementIds.contains(
+                'upgrade-${type.name}-maxed',
+              ),
               progress: maxedUpgradeAchievements.contains(type) ? 1.0 : 0.0,
             ),
           ],
@@ -124,6 +150,7 @@ extension QuickDrawGameAchievements on QuickDrawGame {
             description: t.stageAchievementDescription(level),
             group: AchievementGroup.stage,
             unlocked: bestStageLevel >= level,
+            acknowledged: acknowledgedAchievementIds.contains('stage-$level'),
             progress: (bestStageLevel / level).clamp(0.0, 1.0),
           ),
         )
@@ -141,6 +168,9 @@ extension QuickDrawGameAchievements on QuickDrawGame {
             description: t.characterAchievementDescription(level),
             group: AchievementGroup.character,
             unlocked: bestCharacterLevel >= level,
+            acknowledged: acknowledgedAchievementIds.contains(
+              'character-$level',
+            ),
             progress: (bestCharacterLevel / level).clamp(0.0, 1.0),
           ),
         )
@@ -158,6 +188,9 @@ extension QuickDrawGameAchievements on QuickDrawGame {
             description: t.scoreAchievementDescription(scoreTarget),
             group: AchievementGroup.score,
             unlocked: bestScore >= scoreTarget,
+            acknowledged: acknowledgedAchievementIds.contains(
+              'score-$scoreTarget',
+            ),
             progress: (bestScore / scoreTarget).clamp(0.0, 1.0),
           ),
         )
@@ -226,6 +259,10 @@ extension QuickDrawGameAchievements on QuickDrawGame {
       final storedSelectedUpgrades =
           prefs.getStringList(QuickDrawGame._achievementSelectedUpgradesKey) ??
           const <String>[];
+      final storedAcknowledgedAchievements =
+          prefs.getStringList(QuickDrawGame._achievementAcknowledgedKey) ??
+          const <String>[];
+      acknowledgedAchievementIds.addAll(storedAcknowledgedAchievements);
       selectedUpgradeAchievements.addAll(
         storedSelectedUpgrades
             .map(upgradeTypeFromName)
@@ -284,6 +321,10 @@ extension QuickDrawGameAchievements on QuickDrawGame {
         maxedUpgradeAchievements
             .map((type) => type.name)
             .toList(growable: false),
+      );
+      await prefs.setStringList(
+        QuickDrawGame._achievementAcknowledgedKey,
+        acknowledgedAchievementIds.toList(growable: false),
       );
     } catch (_) {
       // Local persistence should not block gameplay.

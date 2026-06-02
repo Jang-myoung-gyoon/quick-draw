@@ -12,6 +12,7 @@ class GameText {
   String get appTitle => isKo ? '발도술 키우기' : 'Battoujutsu Slasher';
   String get gameStart => isKo ? '게임 시작' : 'GAME START';
   String get achievements => isKo ? '업적' : 'ACHIEVEMENTS';
+  String get achievementConfirm => isKo ? '확인' : 'CLAIM';
   String get upgrades => isKo ? '업그레이드' : 'UPGRADES';
   String get stageLevel => isKo ? '스테이지 레벨' : 'STAGE LEVEL';
   String get characterLevel => isKo ? '캐릭터 레벨' : 'CHARACTER LEVEL';

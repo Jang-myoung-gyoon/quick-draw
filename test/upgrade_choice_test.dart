@@ -138,19 +138,26 @@ void main() {
     expect(find.text('Lv.0'), findsNothing);
     expect(find.text('Lv.2'), findsAtLeastNWidgets(2));
     expect(find.text('Lv.3'), findsOneWidget);
+    final bladePowerIcon = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              UpgradeType.bladePower.iconAssetPath,
+    );
+    expect(bladePowerIcon, findsOneWidget);
     expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Tooltip &&
-            widget.message?.contains(
-                  game.text.upgradeTitle(UpgradeType.bladePower),
-                ) ==
-                true &&
-            widget.message?.contains(
-                  game.text.upgradeDescription(UpgradeType.bladePower),
-                ) ==
-                true,
-      ),
+      find.text(game.text.upgradeTitle(UpgradeType.bladePower)),
+      findsNothing,
+    );
+    await tester.tap(bladePowerIcon);
+    await tester.pumpAndSettle();
+    expect(
+      find.text(game.text.upgradeTitle(UpgradeType.bladePower)),
+      findsOneWidget,
+    );
+    expect(
+      find.text(game.text.upgradeDescription(UpgradeType.bladePower)),
       findsOneWidget,
     );
     expect(
@@ -565,24 +572,51 @@ void main() {
     );
   });
 
-  test('visible achievements show only the next step in each progression', () {
-    final game = QuickDrawGame()
-      ..bestStageLevel = 3
-      ..bestCharacterLevel = 4
-      ..bestScore = 1200
-      ..maxChainLength = 2;
+  test(
+    'visible achievements wait for confirmation before showing next step',
+    () {
+      final game = QuickDrawGame()
+        ..bestStageLevel = 3
+        ..bestCharacterLevel = 4
+        ..bestScore = 1200
+        ..maxChainLength = 2;
 
-    final visible = game.visibleAchievementsForDisplay();
+      final visible = game.visibleAchievementsForDisplay();
 
-    expect(findAchievement(visible, 'stage-3'), isNull);
-    expect(findAchievement(visible, 'stage-5'), isNotNull);
-    expect(findAchievement(visible, 'character-3'), isNull);
-    expect(findAchievement(visible, 'character-5'), isNotNull);
-    expect(findAchievement(visible, 'score-1000'), isNull);
-    expect(findAchievement(visible, 'score-3000'), isNotNull);
-    expect(findAchievement(visible, 'upgrade-chainLength-selected'), isNull);
-    expect(findAchievement(visible, 'upgrade-chainLength-maxed'), isNotNull);
-  });
+      expect(findAchievement(visible, 'stage-3'), isNotNull);
+      expect(findAchievement(visible, 'stage-5'), isNull);
+      expect(findAchievement(visible, 'character-3'), isNotNull);
+      expect(findAchievement(visible, 'character-5'), isNull);
+      expect(findAchievement(visible, 'score-1000'), isNotNull);
+      expect(findAchievement(visible, 'score-3000'), isNull);
+      expect(
+        findAchievement(visible, 'upgrade-chainLength-selected'),
+        isNotNull,
+      );
+      expect(findAchievement(visible, 'upgrade-chainLength-maxed'), isNull);
+
+      game.acknowledgeAchievement('stage-3');
+      game.acknowledgeAchievement('character-3');
+      game.acknowledgeAchievement('score-1000');
+      game.acknowledgeAchievement('upgrade-chainLength-selected');
+      final confirmedVisible = game.visibleAchievementsForDisplay();
+
+      expect(findAchievement(confirmedVisible, 'stage-3'), isNull);
+      expect(findAchievement(confirmedVisible, 'stage-5'), isNotNull);
+      expect(findAchievement(confirmedVisible, 'character-3'), isNull);
+      expect(findAchievement(confirmedVisible, 'character-5'), isNotNull);
+      expect(findAchievement(confirmedVisible, 'score-1000'), isNull);
+      expect(findAchievement(confirmedVisible, 'score-3000'), isNotNull);
+      expect(
+        findAchievement(confirmedVisible, 'upgrade-chainLength-selected'),
+        isNull,
+      );
+      expect(
+        findAchievement(confirmedVisible, 'upgrade-chainLength-maxed'),
+        isNotNull,
+      );
+    },
+  );
 
   test('achievement unlock shows a queued bottom message', () {
     final game = QuickDrawGame()..score = 900;
@@ -659,6 +693,12 @@ void main() {
           .unlocked,
       isTrue,
     );
+
+    game.acknowledgeAchievement('stage-3');
+    await game.saveAchievementProgress();
+    final acknowledged = QuickDrawGame();
+    await acknowledged.loadAchievementProgress();
+    expect(acknowledged.acknowledgedAchievementIds.contains('stage-3'), isTrue);
   });
 
   testWidgets(
@@ -693,9 +733,10 @@ void main() {
 
       expect(find.text('1 / $achievementCount'), findsOneWidget);
       expect(
-        find.text(game.text.stageAchievementTitle(5), skipOffstage: false),
+        find.text(game.text.stageAchievementTitle(3), skipOffstage: false),
         findsOneWidget,
       );
+      expect(find.text(game.text.achievementConfirm), findsOneWidget);
       expect(game.bestStageLevel, 3);
       expect(
         game
@@ -703,6 +744,18 @@ void main() {
             .firstWhere((item) => item.id == 'stage-3')
             .unlocked,
         isTrue,
+      );
+
+      final confirmButton = find.text(game.text.achievementConfirm).first;
+      await tester.ensureVisible(confirmButton);
+      await tester.pump();
+      await tester.tap(confirmButton);
+      await tester.pump();
+
+      expect(game.acknowledgedAchievementIds.contains('stage-3'), isTrue);
+      expect(
+        find.text(game.text.stageAchievementTitle(5), skipOffstage: false),
+        findsOneWidget,
       );
     },
   );
@@ -1687,6 +1740,7 @@ void main() {
       ..bestCharacterLevel = 2
       ..bestScore = 1200
       ..shadowCloneLevel = 4;
+    game.acknowledgedAchievementIds.add('upgrade-shadowClone-selected');
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1710,7 +1764,7 @@ void main() {
     );
     expect(find.text(game.text.score, skipOffstage: false), findsOneWidget);
     expect(
-      find.text(game.text.stageAchievementTitle(5), skipOffstage: false),
+      find.text(game.text.stageAchievementTitle(3), skipOffstage: false),
       findsOneWidget,
     );
     expect(

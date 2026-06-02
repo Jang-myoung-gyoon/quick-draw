@@ -45,7 +45,7 @@ class GameOverOverlay extends StatelessWidget {
                   _ScoreSummary(game: game),
                   if (upgradeRows.isNotEmpty) ...[
                     const SizedBox(height: 20),
-                    _UpgradeReportGrid(rows: upgradeRows),
+                    _UpgradeReportGrid(rows: upgradeRows, closeLabel: t.close),
                   ],
                   const SizedBox(height: 26),
                   Row(
@@ -103,7 +103,8 @@ class GameOverOverlay extends StatelessWidget {
     return _UpgradeReportRow(
       type: type,
       level: level,
-      tooltip: '${t.upgradeTitle(type)}\n${t.upgradeDescription(type)}',
+      title: t.upgradeTitle(type),
+      description: t.upgradeDescription(type),
     );
   }
 
@@ -245,8 +246,9 @@ class _MetricTile extends StatelessWidget {
 
 class _UpgradeReportGrid extends StatelessWidget {
   final List<_UpgradeReportRow> rows;
+  final String closeLabel;
 
-  const _UpgradeReportGrid({required this.rows});
+  const _UpgradeReportGrid({required this.rows, required this.closeLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -264,9 +266,16 @@ class _UpgradeReportGrid extends StatelessWidget {
           return Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: rows
-                .map((row) => _UpgradeReportChip(row: row, width: itemWidth))
-                .toList(growable: false),
+            children: [
+              for (final row in rows)
+                _UpgradeReportChip(
+                  row: row,
+                  width: itemWidth,
+                  onPressed: () {
+                    _showUpgradeReportPopup(context, row, closeLabel);
+                  },
+                ),
+            ],
           );
         },
       ),
@@ -277,50 +286,126 @@ class _UpgradeReportGrid extends StatelessWidget {
 class _UpgradeReportChip extends StatelessWidget {
   final _UpgradeReportRow row;
   final double width;
+  final VoidCallback onPressed;
 
-  const _UpgradeReportChip({required this.row, required this.width});
+  const _UpgradeReportChip({
+    required this.row,
+    required this.width,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      child: Tooltip(
-        message: row.tooltip,
-        waitDuration: const Duration(milliseconds: 250),
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
         child: Container(
           constraints: const BoxConstraints(minHeight: 132),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.065),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(
-                row.type.iconAssetPath,
-                width: 72,
-                height: 72,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Lv.${row.level}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  row.type.iconAssetPath,
+                  width: 72,
+                  height: 72,
+                  fit: BoxFit.contain,
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  'Lv.${row.level}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+void _showUpgradeReportPopup(
+  BuildContext context,
+  _UpgradeReportRow row,
+  String closeLabel,
+) {
+  showDialog<void>(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: const Color(0xFF101522),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.title,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFACC15),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  row.description,
+                  style: TextStyle(
+                    fontSize: 20,
+                    height: 1.32,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withValues(alpha: 0.84),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      closeLabel,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _GameOverButton extends StatelessWidget {
@@ -367,11 +452,13 @@ class _GameOverButton extends StatelessWidget {
 class _UpgradeReportRow {
   final UpgradeType type;
   final int level;
-  final String tooltip;
+  final String title;
+  final String description;
 
   const _UpgradeReportRow({
     required this.type,
     required this.level,
-    required this.tooltip,
+    required this.title,
+    required this.description,
   });
 }

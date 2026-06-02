@@ -11,9 +11,7 @@ class AchievementsOverlay extends StatelessWidget {
       valueListenable: game.achievementRevision,
       builder: (context, revision, child) {
         final achievements = game.achievementsForDisplay();
-        final visibleAchievements = QuickDrawGame.visibleAchievementsFrom(
-          achievements,
-        );
+        final visibleAchievements = game.visibleAchievementsForDisplay();
         return _buildContent(context, achievements, visibleAchievements);
       },
     );
@@ -72,6 +70,7 @@ class AchievementsOverlay extends StatelessWidget {
                   child: Column(
                     children: [
                       _AchievementSection(
+                        game: game,
                         title: t.upgrades,
                         achievements: achievementsByGroup(
                           visibleAchievements,
@@ -79,6 +78,7 @@ class AchievementsOverlay extends StatelessWidget {
                         ),
                       ),
                       _AchievementSection(
+                        game: game,
                         title: t.stageLevel,
                         achievements: achievementsByGroup(
                           visibleAchievements,
@@ -86,6 +86,7 @@ class AchievementsOverlay extends StatelessWidget {
                         ),
                       ),
                       _AchievementSection(
+                        game: game,
                         title: t.characterLevel,
                         achievements: achievementsByGroup(
                           visibleAchievements,
@@ -93,6 +94,7 @@ class AchievementsOverlay extends StatelessWidget {
                         ),
                       ),
                       _AchievementSection(
+                        game: game,
                         title: t.score,
                         achievements: achievementsByGroup(
                           visibleAchievements,
@@ -121,10 +123,15 @@ class AchievementsOverlay extends StatelessWidget {
 }
 
 class _AchievementSection extends StatelessWidget {
+  final QuickDrawGame game;
   final String title;
   final List<Achievement> achievements;
 
-  const _AchievementSection({required this.title, required this.achievements});
+  const _AchievementSection({
+    required this.game,
+    required this.title,
+    required this.achievements,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -136,19 +143,21 @@ class _AchievementSection extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              fontSize: 15,
+              fontSize: 19,
               fontWeight: FontWeight.w900,
               letterSpacing: 3,
               color: Color(0xFF00FFCC),
             ),
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final achievement in achievements)
-                _AchievementTile(achievement: achievement),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _AchievementTile(game: game, achievement: achievement),
+                ),
             ],
           ),
         ],
@@ -158,80 +167,118 @@ class _AchievementSection extends StatelessWidget {
 }
 
 class _AchievementTile extends StatelessWidget {
+  final QuickDrawGame game;
   final Achievement achievement;
 
-  const _AchievementTile({required this.achievement});
+  const _AchievementTile({required this.game, required this.achievement});
 
   @override
   Widget build(BuildContext context) {
     final unlocked = achievement.unlocked;
+    final canConfirm = unlocked && !achievement.acknowledged;
     final accent = unlocked
         ? const Color(0xFFFFD166)
         : Colors.white.withValues(alpha: 0.28);
-    return SizedBox(
-      width: 220,
-      height: 116,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: unlocked
-              ? const Color(0xFF161A2A).withValues(alpha: 0.94)
-              : const Color(0xFF101322).withValues(alpha: 0.76),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: accent.withValues(alpha: 0.75), width: 1.4),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    final content = DecoratedBox(
+      decoration: BoxDecoration(
+        color: unlocked
+            ? const Color(0xFF161A2A).withValues(alpha: 0.94)
+            : const Color(0xFF101322).withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accent.withValues(alpha: 0.75), width: 1.4),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              unlocked ? Icons.emoji_events : Icons.lock_outline,
+              size: 30,
+              color: accent,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    unlocked ? Icons.emoji_events : Icons.lock_outline,
-                    size: 18,
-                    color: accent,
+                  Text(
+                    achievement.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                      color: unlocked
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.58),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      achievement.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: unlocked
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.56),
-                      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    achievement.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.25,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: 0.58),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Text(
-                  achievement.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1.25,
-                    color: Colors.white.withValues(alpha: 0.54),
-                  ),
-                ),
-              ),
-              ClipRRect(
+            ),
+            const SizedBox(width: 14),
+            SizedBox(
+              width: 128,
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: achievement.progress.clamp(0.0, 1.0),
-                  minHeight: 5,
+                  minHeight: 8,
                   backgroundColor: Colors.white.withValues(alpha: 0.12),
                   valueColor: AlwaysStoppedAnimation<Color>(accent),
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 14),
+            SizedBox(
+              width: 86,
+              child: Text(
+                canConfirm
+                    ? game.text.achievementConfirm
+                    : unlocked
+                    ? 'OK'
+                    : '${(achievement.progress.clamp(0.0, 1.0) * 100).round()}%',
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: canConfirm ? 20 : 17,
+                  fontWeight: FontWeight.w900,
+                  color: canConfirm ? const Color(0xFF00FFCC) : accent,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 88),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: canConfirm
+              ? () {
+                  game.playSound(GameSound.uiSelect);
+                  game.acknowledgeAchievement(achievement.id);
+                }
+              : null,
+          child: content,
         ),
       ),
     );
