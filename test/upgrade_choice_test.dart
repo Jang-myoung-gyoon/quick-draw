@@ -133,18 +133,36 @@ void main() {
     expect(find.text('1234'), findsOneWidget);
     expect(find.text('7'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
-    expect(find.text(game.text.finalReport), findsOneWidget);
+    expect(find.text(game.text.tryAgain), findsOneWidget);
+    expect(find.text(game.text.home), findsOneWidget);
+    expect(find.text('Lv.0'), findsNothing);
+    expect(find.text('Lv.2'), findsAtLeastNWidgets(2));
+    expect(find.text('Lv.3'), findsOneWidget);
     expect(
-      find.text(game.text.upgradeTitle(UpgradeType.bladePower)),
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Tooltip &&
+            widget.message?.contains(
+                  game.text.upgradeTitle(UpgradeType.bladePower),
+                ) ==
+                true &&
+            widget.message?.contains(
+                  game.text.upgradeDescription(UpgradeType.bladePower),
+                ) ==
+                true,
+      ),
       findsOneWidget,
     );
-    expect(find.text('공격력 3'), findsOneWidget);
-    expect(find.text('30%'), findsOneWidget);
     expect(
-      find.text(game.text.upgradeTitle(UpgradeType.shield)),
-      findsOneWidget,
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                UpgradeType.luck.iconAssetPath,
+      ),
+      findsNothing,
     );
-    expect(find.text('획득'), findsAtLeastNWidgets(1));
   });
 
   test('critical strike upgrade uses the critical icon asset', () {
