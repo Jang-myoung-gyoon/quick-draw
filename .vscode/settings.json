@@ -9,5 +9,6 @@
       "source.organizeImports": "explicit",
       "source.fixAll": "explicit"
     }
-  }
+  },
+  "cmake.sourceDirectory": "/Users/jangmyeong-gyun/quick-draw/linux"
 }

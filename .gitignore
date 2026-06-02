@@ -15,6 +15,12 @@
 migrate_working_dir/
 .firebase/
 .playwright-mcp/
+.vertex-ai-gcloud/
+generated-videos/
+source-assets/**
+!source-assets/
+!source-assets/**/
+!source-assets/**/AGENTS.md
 
 # IntelliJ related
 *.iml
