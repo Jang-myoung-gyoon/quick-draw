@@ -190,7 +190,10 @@ extension QuickDrawGameShards on QuickDrawGame {
   }
 
   void triggerBonusCollected(Vector2 hitPoint) {
-    playSound(GameSound.bonusCollect);
+    playSoundDelayed(
+      GameSound.bonusCollect,
+      QuickDrawGame.bonusCollectSoundDelay,
+    );
     onTutorialBonusCollected();
     activateUltimate();
   }

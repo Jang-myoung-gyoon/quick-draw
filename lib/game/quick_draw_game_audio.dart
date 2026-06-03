@@ -9,6 +9,13 @@ extension QuickDrawGameAudio on QuickDrawGame {
     async_timer.unawaited(playSoundImpl(sound));
   }
 
+  void playSoundDelayed(GameSound sound, Duration delay) {
+    async_timer.unawaited(() async {
+      await async_timer.Future<void>.delayed(delay);
+      playSound(sound);
+    }());
+  }
+
   Future<void> playSoundImpl(GameSound sound) async {
     final volume = effectiveSfxVolumeFor(sound);
     if (html_audio.supportsHtmlAudio) {

@@ -1427,6 +1427,28 @@ void main() {
     expect(game.health, game.maxHealth);
   });
 
+  testWidgets('bonus attack sound plays half a second after collection', (
+    tester,
+  ) async {
+    final game = QuickDrawGame()
+      ..player = PlayerComponent()
+      ..health = 0.35;
+
+    game.triggerBonusCollected(Vector2(180, 260));
+
+    expect(
+      QuickDrawGame.bonusCollectSoundDelay,
+      const Duration(milliseconds: 500),
+    );
+    expect(game.lastRequestedSoundForTest, isNull);
+
+    await tester.pump(const Duration(milliseconds: 499));
+    expect(game.lastRequestedSoundForTest, isNull);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(game.lastRequestedSoundForTest, GameSound.bonusCollect);
+  });
+
   test('bonus object can be collected along a fast dash movement segment', () {
     expect(
       PlayerComponent.movementTouchesBonus(

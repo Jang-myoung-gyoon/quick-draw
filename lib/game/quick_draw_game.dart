@@ -62,6 +62,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   final FirebaseGameProgressSync _firebaseSync;
   static const double initialPassiveDrainRate = 0.06435;
   static const int earlyDrainBonusFadeOutStage = 20;
+  static const Duration bonusCollectSoundDelay = Duration(milliseconds: 500);
 
   FallingBackground? background;
   late PlayerComponent player;
