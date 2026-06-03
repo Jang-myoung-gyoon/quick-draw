@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
 import '../firebase_options.dart';
@@ -15,21 +14,18 @@ import 'score_record.dart';
 class FirebaseGameProgressSync {
   FirebaseGameProgressSync({
     FirebaseAuth? auth,
-    FirebaseDatabase? database,
-    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
     GameProgressStore store = const GameProgressStore(),
     ScoreRankingStore rankingStore = const ScoreRankingStore(),
   }) : _auth = auth,
-       _database = database,
-       _firestore = firestore,
+       _functions = functions,
        _store = store,
        _rankingStore = rankingStore;
 
   static final FirebaseGameProgressSync instance = FirebaseGameProgressSync();
 
   FirebaseAuth? _auth;
-  FirebaseDatabase? _database;
-  FirebaseFirestore? _firestore;
+  FirebaseFunctions? _functions;
   final GameProgressStore _store;
   final ScoreRankingStore _rankingStore;
   bool _initialized = false;
@@ -49,11 +45,7 @@ class FirebaseGameProgressSync {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.web);
     }
     _auth ??= FirebaseAuth.instance;
-    _database ??= FirebaseDatabase.instanceFor(
-      app: Firebase.app(),
-      databaseURL: DefaultFirebaseOptions.web.databaseURL,
-    );
-    _firestore ??= FirebaseFirestore.instance;
+    _functions ??= FirebaseFunctions.instanceFor(region: 'us-central1');
 
     final user = _auth!.currentUser ?? (await _auth!.signInAnonymously()).user;
     if (user == null) {
@@ -108,15 +100,6 @@ class FirebaseGameProgressSync {
         : localBeforeSignIn.merge(remote);
     await _store.saveLocal(merged);
     await _saveRemoteProgressSafely(merged, uid: user.uid);
-    await _saveUserRankingSafely(
-      score: null,
-      stageLevel: null,
-      characterLevel: null,
-      achievementScore: _achievementScore(merged),
-      updatedAtMillis: DateTime.now().millisecondsSinceEpoch,
-      uid: user.uid,
-      displayName: user.displayName,
-    );
   }
 
   Future<void> restoreRemoteProgressToLocal() async {
@@ -138,15 +121,6 @@ class FirebaseGameProgressSync {
       return;
     }
     await _saveRemoteProgressSafely(progress, uid: user.uid);
-    await _saveUserRankingSafely(
-      score: null,
-      stageLevel: null,
-      characterLevel: null,
-      achievementScore: _achievementScore(progress),
-      updatedAtMillis: DateTime.now().millisecondsSinceEpoch,
-      uid: user.uid,
-      displayName: user.displayName,
-    );
   }
 
   Future<void> recordScore(
@@ -200,16 +174,11 @@ class FirebaseGameProgressSync {
   Future<void> addFriend(String friendUid) async {
     await initialize();
     final user = currentUser;
-    final database = _database;
     final targetUid = friendUid.trim();
-    if (user == null ||
-        database == null ||
-        targetUid.isEmpty ||
-        targetUid == user.uid) {
+    if (user == null || targetUid.isEmpty || targetUid == user.uid) {
       return;
     }
-    await database.ref('friends/${user.uid}/$targetUid').set(true);
-    await database.ref('friends/$targetUid/${user.uid}').set(true);
+    await _callFunction('addFriend', {'friendUid': targetUid});
     final snapshot = await _loadFriendRankingFromRemoteSafely(
       DateTime.now().millisecondsSinceEpoch,
     );
@@ -234,13 +203,13 @@ class FirebaseGameProgressSync {
   }
 
   Future<GameProgressSnapshot?> loadRemoteProgress(String uid) async {
-    final database = _database;
-    if (database == null) {
+    final user = currentUser;
+    if (user == null || uid != user.uid) {
       return null;
     }
-    final snapshot = await database.ref('users/$uid/progress').get();
-    final value = snapshot.value;
-    if (value is Map<Object?, Object?>) {
+    final data = await _callFunction('loadProgress', const {});
+    final value = _readMap(data['progress']);
+    if (value != null) {
       return GameProgressSnapshot.fromJson(value);
     }
     return null;
@@ -250,13 +219,13 @@ class FirebaseGameProgressSync {
     GameProgressSnapshot progress, {
     required String uid,
   }) async {
-    final database = _database;
-    if (database == null) {
+    final user = currentUser;
+    if (user == null || uid != user.uid) {
       return;
     }
-    await database.ref('users/$uid/progress').set({
-      ...progress.toJson(),
-      'updatedAt': ServerValue.timestamp,
+    await _callFunction('saveProgress', {
+      'progress': progress.toJson(),
+      'displayName': user.displayName,
     });
   }
 
@@ -290,32 +259,16 @@ class FirebaseGameProgressSync {
     ScoreRecord record, {
     required int achievementScore,
   }) async {
-    final database = _database;
-    final firestore = _firestore;
-    if (database == null && firestore == null) {
-      return;
-    }
     try {
       final uid = record.uid;
       if (uid == null) {
         return;
       }
-      await _saveUserRankingSafely(
-        score: record.score,
-        stageLevel: record.stageLevel,
-        characterLevel: record.characterLevel,
-        achievementScore: achievementScore,
-        updatedAtMillis: record.playedAtMillis,
-        uid: uid,
-        displayName: record.playerName,
-      );
-      if (database != null) {
-        final key = '${record.playedAtMillis}_${uid}_${record.score}';
-        await database.ref('users/$uid/scores/$key').set({
-          ...record.toJson(),
-          'updatedAt': ServerValue.timestamp,
-        });
-      }
+      await _callFunction('recordScore', {
+        'record': record.toJson(),
+        'achievementScore': achievementScore,
+        'displayName': record.playerName,
+      });
     } catch (_) {
       // Local score history remains available if remote ranking is unavailable.
     }
@@ -325,56 +278,25 @@ class FirebaseGameProgressSync {
     int nowMillis,
   ) async {
     final user = currentUser;
-    final database = _database;
-    final firestore = _firestore;
-    if (user == null || database == null || firestore == null) {
+    if (user == null) {
       return null;
     }
     try {
-      final friendSnapshot = await database.ref('friends/${user.uid}').get();
-      final friendUids = <String>{user.uid};
-      final value = friendSnapshot.value;
-      if (value is Map<Object?, Object?>) {
-        friendUids.addAll(value.keys.whereType<String>());
-      }
-
-      final entries = <FriendRankingEntry>[];
-      for (final uid in friendUids) {
-        final doc = await firestore.collection('rankings').doc(uid).get();
-        final data = doc.data();
-        if (data == null) {
-          entries.add(
-            FriendRankingEntry(
-              uid: uid,
-              displayName: uid == user.uid ? user.displayName : null,
-              score: 0,
-              achievementScore: 0,
-              stageLevel: 1,
-              characterLevel: 1,
-              updatedAtMillis: 0,
-              isCurrentUser: uid == user.uid,
-            ),
-          );
-          continue;
-        }
-        entries.add(
-          FriendRankingEntry(
-            uid: uid,
-            displayName: data['displayName'] is String
-                ? data['displayName'] as String
-                : null,
-            score: _readInt(data['score']),
-            achievementScore: _readInt(data['achievementScore']),
-            stageLevel: _readInt(data['stageLevel'], fallback: 1),
-            characterLevel: _readInt(data['characterLevel'], fallback: 1),
-            updatedAtMillis: _readInt(data['updatedAtMillis']),
-            isCurrentUser: uid == user.uid,
-          ),
-        );
-      }
+      final data = await _callFunction('loadFriendRanking', const {});
+      final entriesValue = data['entries'];
+      final entries = entriesValue is Iterable
+          ? entriesValue
+                .map(_readMap)
+                .nonNulls
+                .map(FriendRankingEntry.fromJson)
+                .toList(growable: false)
+          : const <FriendRankingEntry>[];
       return FriendRankingSnapshot.fromEntries(
         entries,
-        refreshedAtMillis: nowMillis,
+        refreshedAtMillis: _readInt(
+          data['refreshedAtMillis'],
+          fallback: nowMillis,
+        ),
       );
     } catch (_) {
       return null;
@@ -399,43 +321,6 @@ class FirebaseGameProgressSync {
     );
   }
 
-  Future<void> _saveUserRankingSafely({
-    required int? score,
-    required int? stageLevel,
-    required int? characterLevel,
-    required int achievementScore,
-    required int updatedAtMillis,
-    required String uid,
-    required String? displayName,
-  }) async {
-    final firestore = _firestore;
-    if (firestore == null) {
-      return;
-    }
-    try {
-      final data = <String, Object?>{
-        'achievementScore': achievementScore,
-        'updatedAtMillis': updatedAtMillis,
-        'displayName': ?displayName,
-      };
-      if (score != null) {
-        data['score'] = score;
-      }
-      if (stageLevel != null) {
-        data['stageLevel'] = stageLevel;
-      }
-      if (characterLevel != null) {
-        data['characterLevel'] = characterLevel;
-      }
-      await firestore
-          .collection('rankings')
-          .doc(uid)
-          .set(data, SetOptions(merge: true));
-    } catch (_) {
-      // Remote ranking writes are best-effort; local progress remains intact.
-    }
-  }
-
   int _achievementScore(GameProgressSnapshot progress) {
     return progress.acknowledgedAchievements.length * 100 +
         progress.selectedUpgrades.length * 100 +
@@ -452,5 +337,24 @@ class FirebaseGameProgressSync {
       return value.round();
     }
     return fallback;
+  }
+
+  Future<Map<Object?, Object?>> _callFunction(
+    String name,
+    Map<String, Object?> data,
+  ) async {
+    final functions = _functions;
+    if (functions == null) {
+      return const {};
+    }
+    final result = await functions.httpsCallable(name).call<Object?>(data);
+    return _readMap(result.data) ?? const {};
+  }
+
+  Map<Object?, Object?>? _readMap(Object? value) {
+    if (value is Map) {
+      return value.map((key, value) => MapEntry(key, value));
+    }
+    return null;
   }
 }

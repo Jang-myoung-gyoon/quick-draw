@@ -36,6 +36,27 @@
       "reference_mode": "none",
       "default_reference_image_paths": [],
       "updated_at": "2026-06-03T06:44:01.431Z"
+    },
+    "ultimate_rising_slash_effect": {
+      "description": "Vertical 9:16 VFX source art for the bonus-triggered upward ultimate slash effect.",
+      "prompt": "Create a standalone 2D game VFX source image for Quick Draw, not a character and not an icon. The effect is an upward battoujutsu slash called Rising Sky Cleave: a vertical lower-to-upper sword arc with a bright white blade core, warm gold and coral energy ribbon, small teal accents, and tiny paper-lantern sparks. Match the current game style: polished anime/casual mobile 2D, bright sky-action palette, clean cel-shaded shapes, readable at mobile scale. Use a vertical composition. No text, no UI, no logo, no gore, no character, no sword handle. Suitable for chroma-key video animation and PNG frame extraction.",
+      "reference_mode": "none",
+      "default_reference_image_paths": [],
+      "updated_at": "2026-06-03T06:56:23.907Z"
+    },
+    "ultimate_dragon_rising_slash_effect": {
+      "description": "Vertical 9:16 VFX source art for a flashy dragon-rising bonus ultimate slash effect.",
+      "prompt": "Create a standalone Quick Draw 2D game VFX source image, not a character and not an icon. The effect is a dragon-rising upward slash: a radiant gold and coral energy dragon ascending from the bottom in an S-shaped path, with a bright white sword-cut core through the dragon body, small teal highlights, paper-lantern sparks, a readable dragon head with horns and whiskers near the top, and a glowing impact flare at the bottom. Match the current game style: polished anime/casual mobile 2D, bright sky-action palette, clean cel-shaded shapes, readable at mobile scale. Use vertical 9:16 composition. No text, no UI, no logo, no gore, no character, no sword handle. Suitable for chroma-key video animation and PNG frame extraction.",
+      "reference_mode": "none",
+      "default_reference_image_paths": [],
+      "updated_at": "2026-06-03T07:03:07.333Z"
+    },
+    "ultimate_rising_straight_slash_effect": {
+      "description": "Vertical portrait video VFX for a game sword slash effect: a bottom-to-top rising straight slash, no dragon or creature motifs.",
+      "prompt": "Create a standalone vertical 9:16 game sword-slash VFX video concept for Quick Draw. This is explicitly for use as an in-game sword slash effect video, not illustration, not character art, not a dragon, not a creature, not an icon. The effect is a bottom-to-top rising straight slash: a mostly vertical single cut line from lower screen to upper screen, with layered complex energy ribbons and curved secondary streaks around the main straight slash. Bright white blade core, warm gold/coral energy edges, small teal highlights, paper-lantern sparks, clean anime/casual mobile 2D style matching the current game. No character, no sword handle, no dragon, no animal, no face, no text, no UI, no logo, no gore. Use vertical portrait composition and a flat chroma-key background for frame extraction.",
+      "reference_mode": "none",
+      "default_reference_image_paths": [],
+      "updated_at": "2026-06-03T07:23:21.669Z"
     }
   },
   "sprite_animation_prompts": {
@@ -46,7 +67,31 @@
       "chroma_key_color": "#00ff00",
       "notes": "Use for the bonus-collected ultimate Sky Cleave slash effect. Extracted frames should be composited in-game over gameplay.",
       "updated_at": "2026-06-03T06:44:02.772Z"
+    },
+    "ultimate_rising_slash_effect": {
+      "motion_prompt": "Animate a short vertical 9:16 Quick Draw ultimate slash VFX. The slash begins as a bright impact flare near the bottom center, then cuts upward in one fast battoujutsu motion, following a tall slightly curved arc from lower-left/bottom-center toward upper-right. The effect should bloom into a white blade core with warm gold/coral energy, small teal highlights, and paper-lantern sparks, then fade upward into particles. Match the game's existing polished casual anime 2D style and warm sky-action palette. Camera locked, effect-only, no character, no sword handle, no text, no UI, no gore. Use a perfectly flat solid #00ff00 chroma-key background in every frame and do not use #00ff00 inside the effect.",
+      "prompt": "Create a short 2D sprite animation video from the supplied starting image.\nPreserve the exact character identity, costume, palette, proportions, silhouette, and camera scale from the input image.\nKeep the character fully visible, centered, and readable for frame extraction.\nSprite type motion: Animate a short vertical 9:16 Quick Draw ultimate slash VFX. The slash begins as a bright impact flare near the bottom center, then cuts upward in one fast battoujutsu motion, following a tall slightly curved arc from lower-left/bottom-center toward upper-right. The effect should bloom into a white blade core with warm gold/coral energy, small teal highlights, and paper-lantern sparks, then fade upward into particles. Match the game's existing polished casual anime 2D style and warm sky-action palette. Camera locked, effect-only, no character, no sword handle, no text, no UI, no gore. Use a perfectly flat solid #00ff00 chroma-key background in every frame and do not use #00ff00 inside the effect.\nUse a perfectly flat solid #00ff00 chroma-key background for every frame. Do not use #00ff00 anywhere in the character, prop, clothing, effects, shadows, or antialiasing. No gradients, texture, floor plane, cast shadow, contact shadow, glow halo, particles, or lighting variation in the background.\nNo text, no logo, no UI, no duplicate character, no scene cuts.",
+      "transparent_background": true,
+      "chroma_key_color": "#00ff00",
+      "notes": "Use for the bonus-collected ultimate Rising Sky Cleave upward slash effect in portrait gameplay.",
+      "updated_at": "2026-06-03T06:56:23.914Z"
+    },
+    "ultimate_dragon_rising_slash_effect": {
+      "motion_prompt": "Animate a short vertical 9:16 Quick Draw ultimate slash VFX. The slash begins as a bright circular impact flare near the bottom, then a radiant gold/coral energy dragon erupts upward, spiraling in an S-shaped ascent like a dragon flying into the sky. The dragon must read as a creature, not an arrow: preserve a rounded dragon head, visible red eye, horns, whiskers, flame-like dorsal fins, and a flowing serpentine body. The dragon body must also read as a sword slash with a white blade core through the center, warm gold/coral energy edges, tiny teal accents, and paper-lantern sparks. Make it flashy and magical but still clean casual mobile 2D, matching the existing bright sky-action game style. Camera locked, effect-only, no character, no sword handle, no text, no UI, no gore. Use a perfectly flat solid #00ff00 chroma-key background in every frame and do not use #00ff00 inside the effect.",
+      "prompt": "Create a short 2D sprite animation video from the supplied starting image.\nPreserve the exact character identity, costume, palette, proportions, silhouette, and camera scale from the input image.\nKeep the character fully visible, centered, and readable for frame extraction.\nSprite type motion: Animate a short vertical 9:16 Quick Draw ultimate slash VFX. The slash begins as a bright circular impact flare near the bottom, then a radiant gold/coral energy dragon erupts upward, spiraling in an S-shaped ascent like a dragon flying into the sky. The dragon must read as a creature, not an arrow: preserve a rounded dragon head, visible red eye, horns, whiskers, flame-like dorsal fins, and a flowing serpentine body. The dragon body must also read as a sword slash with a white blade core through the center, warm gold/coral energy edges, tiny teal accents, and paper-lantern sparks. Make it flashy and magical but still clean casual mobile 2D, matching the existing bright sky-action game style. Camera locked, effect-only, no character, no sword handle, no text, no UI, no gore. Use a perfectly flat solid #00ff00 chroma-key background in every frame and do not use #00ff00 inside the effect.\nUse a perfectly flat solid #00ff00 chroma-key background for every frame. Do not use #00ff00 anywhere in the character, prop, clothing, effects, shadows, or antialiasing. No gradients, texture, floor plane, cast shadow, contact shadow, glow halo, particles, or lighting variation in the background.\nNo text, no logo, no UI, no duplicate character, no scene cuts.",
+      "transparent_background": true,
+      "chroma_key_color": "#00ff00",
+      "notes": "Use for the bonus-collected ultimate dragon-rising upward slash. MP4 is stored separately from extracted PNG frames.",
+      "updated_at": "2026-06-03T07:08:35.592Z"
+    },
+    "ultimate_rising_straight_slash_effect": {
+      "motion_prompt": "Generate a vertical 9:16 video intended specifically as an in-game sword slash VFX for Quick Draw. Do not create a dragon, creature, animal, face, character, or sword handle. The effect starts with an empty flat chroma-key screen, then a bottom impact spark appears near the lower center and a single mostly straight vertical slash cuts rapidly upward to the top. The main slash should be a bright white blade core with warm gold/coral edges. Around it, add complex curved secondary energy streaks, thin afterimage ribbons, teal accent glints, and paper-lantern sparks, but keep the main read as one bottom-to-top straight rising slash. Clean polished anime/casual mobile 2D game VFX style, readable at mobile scale. Camera locked, no text, no UI, no logo, no gore. Use a perfectly flat solid #00ff00 chroma-key background in every frame and do not use #00ff00 inside the effect.",
+      "prompt": "Create a short 2D sprite animation video from the supplied starting image.\nPreserve the exact character identity, costume, palette, proportions, silhouette, and camera scale from the input image.\nKeep the character fully visible, centered, and readable for frame extraction.\nSprite type motion: Generate a vertical 9:16 video intended specifically as an in-game sword slash VFX for Quick Draw. Do not create a dragon, creature, animal, face, character, or sword handle. The effect starts with an empty flat chroma-key screen, then a bottom impact spark appears near the lower center and a single mostly straight vertical slash cuts rapidly upward to the top. The main slash should be a bright white blade core with warm gold/coral edges. Around it, add complex curved secondary energy streaks, thin afterimage ribbons, teal accent glints, and paper-lantern sparks, but keep the main read as one bottom-to-top straight rising slash. Clean polished anime/casual mobile 2D game VFX style, readable at mobile scale. Camera locked, no text, no UI, no logo, no gore. Use a perfectly flat solid #00ff00 chroma-key background in every frame and do not use #00ff00 inside the effect.\nUse a perfectly flat solid #00ff00 chroma-key background for every frame. Do not use #00ff00 anywhere in the character, prop, clothing, effects, shadows, or antialiasing. No gradients, texture, floor plane, cast shadow, contact shadow, glow halo, particles, or lighting variation in the background.\nNo text, no logo, no UI, no duplicate character, no scene cuts.",
+      "transparent_background": true,
+      "chroma_key_color": "#00ff00",
+      "notes": "Generated without a slash reference image: only a blank chroma-key seed frame is supplied because the MCP video tool requires an input image.",
+      "updated_at": "2026-06-03T07:23:21.676Z"
     }
   },
-  "updated_at": "2026-06-03T06:44:02.772Z"
+  "updated_at": "2026-06-03T07:23:21.676Z"
 }

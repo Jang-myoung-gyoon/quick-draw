@@ -28,8 +28,14 @@ extension QuickDrawGameTutorial on QuickDrawGame {
 
   List<Vector2> get tutorialChainTargetPositions => [
     Vector2(size.x * 0.36, size.y * 0.32),
+    Vector2(size.x * 0.5, size.y * 0.28),
     Vector2(size.x * 0.64, size.y * 0.24),
   ];
+
+  List<Vector2> get tutorialChainTapPositions {
+    final targets = tutorialChainTargetPositions;
+    return [targets.first, targets.last];
+  }
 
   List<Vector2> get tutorialUltimateTapPositions => [
     Vector2(size.x * 0.34, size.y * 0.34),
@@ -44,6 +50,9 @@ extension QuickDrawGameTutorial on QuickDrawGame {
   List<Vector2> get _tutorialCurrentChainTargetPositions =>
       tutorialChainTargetPositions;
 
+  List<Vector2> get _tutorialCurrentChainTapPositions =>
+      tutorialChainTapPositions;
+
   @visibleForTesting
   TutorialPhase get tutorialPhaseForTest => _tutorialPhase;
 
@@ -56,6 +65,10 @@ extension QuickDrawGameTutorial on QuickDrawGame {
   @visibleForTesting
   List<Vector2> get tutorialChainTargetPositionsForTest =>
       tutorialChainTargetPositions;
+
+  @visibleForTesting
+  List<Vector2> get tutorialChainTapPositionsForTest =>
+      tutorialChainTapPositions;
 
   @visibleForTesting
   List<Vector2> get tutorialUltimateTapPositionsForTest =>
@@ -196,7 +209,7 @@ extension QuickDrawGameTutorial on QuickDrawGame {
       );
     }
     if (_tutorialPhase == TutorialPhase.chainedSlash) {
-      final targets = _tutorialCurrentChainTargetPositions;
+      final targets = _tutorialCurrentChainTapPositions;
       final index = currentChainPoints.length;
       if (index >= targets.length) {
         return null;
@@ -332,20 +345,24 @@ extension QuickDrawGameTutorial on QuickDrawGame {
             currentChainPoints.length,
             tutorialUltimateTapPositions.length - 1,
           )]
-        : _tutorialCurrentChainTargetPositions[min(
+        : _tutorialCurrentChainTapPositions[min(
             currentChainPoints.length,
-            _tutorialCurrentChainTargetPositions.length - 1,
+            _tutorialCurrentChainTapPositions.length - 1,
           )];
     final showBonusGuide =
         _tutorialPhase == TutorialPhase.ultimateSlash &&
         _tutorialBonusTargetPrepared;
     final label = _tutorialPhase == TutorialPhase.firstSlash
-        ? (text.isKo ? '운석을 눌러 베기' : 'Tap the meteor')
+        ? (text.isKo
+              ? '운석을 베면 경험치를 얻고 강화를 선택할 수 있어요'
+              : 'Slash meteors to gain experience and choose upgrades')
         : _tutorialPhase == TutorialPhase.ultimateSlash
         ? (text.isKo
-              ? '두 번 클릭해 초록 필살기 오브젝트를 지나가기'
-              : 'Use two taps through the green ultimate object')
-        : (text.isKo ? '연속으로 운석 누르기' : 'Chain two meteors');
+              ? '보너스 오브젝트는 즉시 에너지를 모두 회복하고 화면의 모든 오브젝트를 베어요'
+              : 'Bonus objects instantly refill energy and slash every object on screen')
+        : (text.isKo
+              ? '두 운석을 연속 클릭하면 입력 경로의 운석도 함께 벨 수 있어요'
+              : 'Chain two taps to slash meteors along the input path');
     _drawTutorialGuide(
       canvas,
       target,
@@ -375,6 +392,7 @@ extension QuickDrawGameTutorial on QuickDrawGame {
     final center = Offset(target.x, target.y);
     canvas.drawCircle(center, 74 + pulse * 8, fillPaint);
     canvas.drawCircle(center, 62 + pulse * 8, ringPaint);
+    _drawTutorialHandIcon(canvas, target, pulse);
 
     if (secondaryTarget != null) {
       final bonusCenter = Offset(secondaryTarget.x, secondaryTarget.y);
@@ -385,26 +403,24 @@ extension QuickDrawGameTutorial on QuickDrawGame {
       canvas.drawCircle(bonusCenter, 54 + pulse * 6, bonusPaint);
     }
 
+    _drawTutorialTextPanel(canvas, label);
+  }
+
+  void _drawTutorialTextPanel(Canvas canvas, String label) {
     final textPainter = TextPainter(
       text: TextSpan(
         text: label,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 30,
+          fontSize: 24,
           fontWeight: FontWeight.w900,
         ),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: min(size.x - 48, 360));
+    )..layout(maxWidth: min(size.x - 64, 460));
 
-    final textOffset = Offset(
-      (target.x - textPainter.width / 2).clamp(
-        24.0,
-        size.x - textPainter.width - 24.0,
-      ),
-      max(36.0, target.y - 128),
-    );
+    final textOffset = Offset((size.x - textPainter.width) / 2, 42.0);
     final bubbleRect = Rect.fromLTWH(
       textOffset.dx - 16,
       textOffset.dy - 10,
@@ -418,6 +434,55 @@ extension QuickDrawGameTutorial on QuickDrawGame {
       bubblePaint,
     );
     textPainter.paint(canvas, textOffset);
+  }
+
+  void _drawTutorialHandIcon(Canvas canvas, Vector2 target, double pulse) {
+    final bob = sin(_laserIndicatorTimer * 5.0) * 7.0;
+    final origin = Offset(target.x + 18, target.y + 20 + bob);
+    canvas.save();
+    canvas.translate(origin.dx, origin.dy);
+    canvas.rotate(-0.18);
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.34)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawOval(const Rect.fromLTWH(-18, 20, 46, 14), shadowPaint);
+
+    final outlinePaint = Paint()
+      ..color = const Color(0xFF052E20)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final handPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.94)
+      ..style = PaintingStyle.fill;
+
+    final handPath = Path()
+      ..moveTo(-11, 14)
+      ..lineTo(-11, -6)
+      ..quadraticBezierTo(-11, -15, -4, -15)
+      ..quadraticBezierTo(2, -15, 2, -7)
+      ..lineTo(2, -28)
+      ..quadraticBezierTo(2, -36, 9, -36)
+      ..quadraticBezierTo(16, -36, 16, -28)
+      ..lineTo(16, -10)
+      ..lineTo(24, -8)
+      ..quadraticBezierTo(31, -6, 30, 2)
+      ..lineTo(26, 20)
+      ..quadraticBezierTo(24, 29, 14, 29)
+      ..lineTo(0, 29)
+      ..quadraticBezierTo(-9, 29, -13, 20)
+      ..close();
+    canvas.drawPath(handPath, handPaint);
+    canvas.drawPath(handPath, outlinePaint);
+
+    final tapPaint = Paint()
+      ..color = const Color(0xFFFFD166).withValues(alpha: 0.52 + pulse * 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+    canvas.drawCircle(const Offset(9, -42), 9 + pulse * 4, tapPaint);
+    canvas.restore();
   }
 
   void _drawTutorialDarkMask(Canvas canvas, List<Vector2> targets) {

@@ -10,7 +10,7 @@
       "$uid": {
         ".read": "auth != null && auth.uid == $uid",
         "$friendUid": {
-          ".write": "auth != null && (auth.uid == $uid || auth.uid == $friendUid)"
+          ".write": false
         }
       }
     }

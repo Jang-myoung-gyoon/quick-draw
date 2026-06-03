@@ -1494,25 +1494,31 @@ void main() {
     game.prepareTutorialInputTargetsIfReady();
     game.processLifecycleEvents();
 
-    expect(game.children.whereType<SlashTarget>(), hasLength(2));
+    expect(game.children.whereType<SlashTarget>(), hasLength(3));
     expect(
       game.children.whereType<SlashTarget>().map((target) => target.position),
       game.tutorialChainTargetPositionsForTest,
+    );
+    expect(
+      game.tutorialChainTargetPositionsForTest[1],
+      (game.tutorialChainTapPositionsForTest.first +
+              game.tutorialChainTapPositionsForTest.last) *
+          0.5,
     );
     expect(
       game.children.whereType<SlashTarget>().map((target) => target.opacity),
       everyElement(1.0),
     );
 
-    game.addToChain(game.tutorialChainTargetPositionsForTest.first);
+    game.addToChain(game.tutorialChainTapPositionsForTest.first);
     expect(game.currentChainPoints, hasLength(1));
     expect(game.isTutorialWaitingForInput, isTrue);
     game.prepareTutorialInputTargetsIfReady();
     game.processLifecycleEvents();
-    expect(game.children.whereType<SlashTarget>(), hasLength(2));
+    expect(game.children.whereType<SlashTarget>(), hasLength(3));
     expect(game.children.whereType<BonusTarget>(), isEmpty);
 
-    game.addToChain(game.tutorialChainTargetPositionsForTest.last);
+    game.addToChain(game.tutorialChainTapPositionsForTest.last);
     expect(game.currentChainPoints, isEmpty);
 
     game.player.isDashing = false;

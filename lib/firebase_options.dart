@@ -15,8 +15,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '446817919088',
     projectId: 'quick-draw-aaceb',
     authDomain: 'quick-draw-aaceb.firebaseapp.com',
-    databaseURL:
-        'https://quick-draw-aaceb-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL: 'https://quick-draw-aaceb-default-rtdb.firebaseio.com',
     storageBucket: 'quick-draw-aaceb.firebasestorage.app',
     measurementId: 'G-KLES2YLBT5',
   );
