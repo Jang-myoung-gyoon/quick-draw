@@ -13,6 +13,7 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "site": "quick-draw-aaceb",
     "public": "build/web",
     "ignore": [
       "firebase.json",
