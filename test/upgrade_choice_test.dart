@@ -1428,7 +1428,7 @@ void main() {
     expect(game.health, game.maxHealth);
   });
 
-  testWidgets('bonus attack sound plays one second after collection', (
+  testWidgets('bonus trigger sound plays on collision before delayed slash', (
     tester,
   ) async {
     final game = QuickDrawGame()
@@ -1437,11 +1437,11 @@ void main() {
 
     game.triggerBonusCollected(Vector2(180, 260));
 
+    expect(game.lastRequestedSoundForTest, GameSound.bonusTrigger);
     expect(QuickDrawGame.bonusCollectSoundDelay, const Duration(seconds: 1));
-    expect(game.lastRequestedSoundForTest, isNull);
 
     await tester.pump(const Duration(milliseconds: 999));
-    expect(game.lastRequestedSoundForTest, isNull);
+    expect(game.lastRequestedSoundForTest, GameSound.bonusTrigger);
 
     await tester.pump(const Duration(milliseconds: 1));
     expect(game.lastRequestedSoundForTest, GameSound.bonusCollect);
@@ -2062,6 +2062,7 @@ void main() {
       GameSound.bonusCollect.assetPath,
       'elevenlabs/bonus_ultimate_slash.mp3',
     );
+    expect(GameSound.bonusTrigger.assetPath, 'elevenlabs/bonus_trigger.mp3');
     expect(
       GameSound.uiVolumePreview.assetPath,
       'elevenlabs/ui_volume_preview.mp3',

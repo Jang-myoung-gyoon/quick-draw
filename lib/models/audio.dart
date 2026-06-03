@@ -3,6 +3,7 @@ enum GameSound {
   targetSlice('elevenlabs/target_slice_soft.mp3'),
   targetHit('elevenlabs/target_hit.mp3'),
   obstacleHit('elevenlabs/obstacle_hit.mp3'),
+  bonusTrigger('elevenlabs/bonus_trigger.mp3'),
   bonusCollect('elevenlabs/bonus_ultimate_slash.mp3'),
   laserAttack('elevenlabs/laser_attack.mp3'),
   energyShardAbsorb('elevenlabs/energy_shard_absorb.mp3'),
