@@ -103,17 +103,17 @@ def main() -> None:
     effect = Image.new("RGBA", (W * SCALE, H * SCALE), (0, 0, 0, 0))
 
     glow = Image.new("RGBA", effect.size, (0, 0, 0, 0))
-    draw_curve(glow, (255, 177, 64, 125), 58, start=0.03, end=0.84)
-    draw_curve(glow, (255, 85, 78, 82), 28, start=0.08, end=0.82)
-    draw_curve(glow, (33, 196, 190, 70), 16, start=0.18, end=0.78)
+    draw_curve(glow, (255, 177, 64, 118), 36, start=0.03, end=0.70)
+    draw_curve(glow, (255, 85, 78, 78), 20, start=0.08, end=0.66)
+    draw_curve(glow, (33, 196, 190, 60), 12, start=0.18, end=0.62)
     glow = glow.filter(ImageFilter.GaussianBlur(8 * SCALE))
     tint_alpha(glow, (255, 176, 68), min_alpha=2)
     effect.alpha_composite(glow)
 
     ribbon = Image.new("RGBA", effect.size, (0, 0, 0, 0))
-    draw_curve(ribbon, (255, 181, 65, 230), 40, start=0.02, end=0.88)
-    draw_curve(ribbon, (255, 112, 82, 180), 22, start=0.08, end=0.84)
-    draw_curve(ribbon, (42, 178, 184, 150), 14, start=0.18, end=0.86)
+    draw_curve(ribbon, (255, 181, 65, 220), 28, start=0.02, end=0.72)
+    draw_curve(ribbon, (255, 112, 82, 170), 16, start=0.08, end=0.68)
+    draw_curve(ribbon, (42, 178, 184, 136), 10, start=0.18, end=0.64)
     draw_tapered_blade(ribbon)
 
     draw = ImageDraw.Draw(ribbon, "RGBA")
