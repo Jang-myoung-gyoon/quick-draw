@@ -18,6 +18,27 @@ class GameText {
   String get noRankingRecords =>
       isKo ? '아직 기록이 없습니다.' : 'No score records yet.';
   String get friendCode => isKo ? '내 친구 코드' : 'MY FRIEND CODE';
+  String get community => isKo ? '커뮤니티' : 'COMMUNITY';
+  String get myUniqueId => isKo ? '내 고유 ID' : 'MY UNIQUE ID';
+  String get googleLogin => isKo ? 'Google 로그인' : 'Google Sign In';
+  String get friendList => isKo ? '친구 리스트' : 'FRIENDS';
+  String get incomingFriendRequests => isKo ? '받은 친구 요청' : 'INCOMING REQUESTS';
+  String get outgoingFriendRequests => isKo ? '보낸 친구 요청' : 'SENT REQUESTS';
+  String get acceptFriend => isKo ? '수락' : 'ACCEPT';
+  String get noFriends => isKo ? '아직 친구가 없습니다.' : 'No friends yet.';
+  String get noFriendRequests =>
+      isKo ? '받은 친구 요청이 없습니다.' : 'No incoming requests.';
+  String get friendRequestSent =>
+      isKo ? '친구 요청을 보냈습니다.' : 'Friend request sent.';
+  String get friendAccepted => isKo ? '친구 요청을 수락했습니다.' : 'Friend accepted.';
+  String get friendInviteTitle => isKo ? '친구 초대 링크' : 'FRIEND INVITE LINK';
+  String get friendInviteDescription => isKo
+      ? '친구 요청을 자동으로 보내는 URL을 만들 수 있습니다.'
+      : 'Create a URL that sends a friend request automatically.';
+  String get copyInviteRequestLink =>
+      isKo ? '친구 요청 URL 복사' : 'COPY REQUEST URL';
+  String get copyPlainLink => isKo ? '그냥 URL 복사' : 'COPY APP URL';
+  String get linkCopied => isKo ? 'URL을 복사했습니다.' : 'URL copied.';
   String get friendUidHint => isKo ? '친구 UID 입력' : 'Friend UID';
   String get addFriend => isKo ? '친구 추가' : 'ADD';
   String get refresh => isKo ? '새로고침' : 'Refresh';

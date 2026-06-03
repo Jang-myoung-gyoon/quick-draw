@@ -163,11 +163,11 @@ extension QuickDrawGameShards on QuickDrawGame {
   }
 
   void spawnVerticalUltimateSlash() {
-    final x = player.position.x;
-    const slashColor = Color(0xFF22C55E);
-    for (var y = player.position.y; y >= -80; y -= 180) {
-      spawnSliceParticles(Vector2(x, y), slashColor);
-    }
+    add(
+      UltimateSlashEffect(
+        bottomCenter: Vector2(player.position.x, player.position.y + 80.0),
+      ),
+    );
   }
 
   void addLightfootDistance(double distance) {
@@ -183,7 +183,6 @@ extension QuickDrawGameShards on QuickDrawGame {
 
   void triggerBonusCollected(Vector2 hitPoint) {
     playSound(GameSound.bonusCollect);
-    spawnSliceParticles(hitPoint, const Color(0xFF22C55E));
     onTutorialBonusCollected();
     activateUltimate();
   }

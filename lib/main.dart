@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 
 import 'game/quick_draw_game.dart';
 import 'overlays/achievements_overlay.dart';
+import 'overlays/community_overlay.dart';
+import 'overlays/friends_overlay.dart';
 import 'overlays/game_over_overlay.dart';
 import 'overlays/hud_overlay.dart';
 import 'overlays/ranking_overlay.dart';
@@ -128,6 +130,10 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
                                     AchievementsOverlay(game: game),
                                 'RankingScreen': (context, game) =>
                                     RankingOverlay(game: game),
+                                'CommunityScreen': (context, game) =>
+                                    CommunityOverlay(game: game),
+                                'FriendsScreen': (context, game) =>
+                                    FriendsOverlay(game: game),
                                 'SettingsScreen': (context, game) =>
                                     SettingsOverlay(game: game),
                               },

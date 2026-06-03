@@ -12,14 +12,25 @@ const region = "us-central1";
 const refreshIntervalMillis = 20 * 60 * 1000;
 const maxRankingFriends = 100;
 const maxScoreRecords = 50;
+const maxCommunityFriends = 200;
+const maxFriendRequests = 100;
+const allowedOrigins = [
+  "http://localhost",
+  /^http:\/\/localhost(:\d+)?$/,
+  "http://127.0.0.1",
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+  "https://quick-draw-aaceb.web.app",
+  "https://quick-draw-aaceb.firebaseapp.com",
+];
+const callableOptions = {region, cors: allowedOrigins};
 
-exports.loadProgress = onCall({region}, async (request) => {
+exports.loadProgress = onCall(callableOptions, async (request) => {
   const uid = requireUid(request);
   const snapshot = await db.ref(`users/${uid}/progress`).get();
   return {progress: snapshot.exists() ? snapshot.val() : null};
 });
 
-exports.saveProgress = onCall({region}, async (request) => {
+exports.saveProgress = onCall(callableOptions, async (request) => {
   const uid = requireUid(request);
   const progress = readProgress(request.data?.progress);
   const displayName = readOptionalString(request.data?.displayName, 80);
@@ -40,7 +51,7 @@ exports.saveProgress = onCall({region}, async (request) => {
   return {ok: true};
 });
 
-exports.recordScore = onCall({region}, async (request) => {
+exports.recordScore = onCall(callableOptions, async (request) => {
   const uid = requireUid(request);
   const record = readScoreRecord(request.data?.record);
   const displayName =
@@ -77,29 +88,111 @@ exports.recordScore = onCall({region}, async (request) => {
   return {ok: true};
 });
 
-exports.addFriend = onCall({region}, async (request) => {
+exports.sendFriendRequest = onCall(callableOptions, async (request) => {
   const uid = requireUid(request);
   const friendUid = readRequiredString(request.data?.friendUid, "friendUid", 128);
   if (friendUid === uid) {
     throw new HttpsError("invalid-argument", "Cannot add yourself as a friend.");
   }
 
-  try {
-    await admin.auth().getUser(friendUid);
-  } catch (_) {
+  const [currentUser, friendUser] = await Promise.all([
+    admin.auth().getUser(uid),
+    loadAuthUser(friendUid),
+  ]);
+  if (!friendUser) {
     throw new HttpsError("not-found", "Friend user was not found.");
   }
 
+  const existingFriend = await db.ref(`friends/${uid}/${friendUid}`).get();
+  if (existingFriend.exists()) {
+    return {ok: true, alreadyFriends: true};
+  }
+  const existingRequest = await db.ref(`friendRequests/${friendUid}/incoming/${uid}`).get();
+  if (existingRequest.exists()) {
+    return {ok: true, alreadyRequested: true};
+  }
+
+  const [incomingCount, outgoingCount] = await Promise.all([
+    countChildren(`friendRequests/${friendUid}/incoming`),
+    countChildren(`friendRequests/${uid}/outgoing`),
+  ]);
+  if (incomingCount >= maxFriendRequests || outgoingCount >= maxFriendRequests) {
+    throw new HttpsError("resource-exhausted", "Friend request limit reached.");
+  }
+
+  const now = Date.now();
+  const requestData = communityUserRecord(uid, currentUser, now);
+  const outgoingData = communityUserRecord(friendUid, friendUser, now);
   const updates = {};
-  updates[`friends/${uid}/${friendUid}`] = true;
-  updates[`friends/${friendUid}/${uid}`] = true;
+  updates[`friendRequests/${friendUid}/incoming/${uid}`] = requestData;
+  updates[`friendRequests/${uid}/outgoing/${friendUid}`] = outgoingData;
   await db.ref().update(updates);
-  await db.ref(`rankingRefreshes/${uid}`).remove();
 
   return {ok: true};
 });
 
-exports.loadFriendRanking = onCall({region}, async (request) => {
+exports.acceptFriendRequest = onCall(callableOptions, async (request) => {
+  const uid = requireUid(request);
+  const requesterUid = readRequiredString(
+    request.data?.requesterUid,
+    "requesterUid",
+    128,
+  );
+  if (requesterUid === uid) {
+    throw new HttpsError("invalid-argument", "Cannot accept yourself.");
+  }
+
+  const incoming = await db.ref(`friendRequests/${uid}/incoming/${requesterUid}`).get();
+  if (!incoming.exists()) {
+    throw new HttpsError("not-found", "Friend request was not found.");
+  }
+
+  const [currentUser, requesterUser] = await Promise.all([
+    admin.auth().getUser(uid),
+    loadAuthUser(requesterUid),
+  ]);
+  if (!requesterUser) {
+    throw new HttpsError("not-found", "Requester user was not found.");
+  }
+
+  const now = Date.now();
+  const updates = {};
+  updates[`friends/${uid}/${requesterUid}`] = communityUserRecord(
+    requesterUid,
+    requesterUser,
+    now,
+  );
+  updates[`friends/${requesterUid}/${uid}`] = communityUserRecord(
+    uid,
+    currentUser,
+    now,
+  );
+  updates[`friendRequests/${uid}/incoming/${requesterUid}`] = null;
+  updates[`friendRequests/${requesterUid}/outgoing/${uid}`] = null;
+  updates[`rankingRefreshes/${uid}`] = null;
+  updates[`rankingRefreshes/${requesterUid}`] = null;
+  await db.ref().update(updates);
+
+  return {ok: true};
+});
+
+exports.loadCommunity = onCall(callableOptions, async (request) => {
+  const uid = requireUid(request);
+  const [friends, incomingRequests, outgoingRequests] = await Promise.all([
+    loadCommunityUsers(`friends/${uid}`),
+    loadCommunityUsers(`friendRequests/${uid}/incoming`, maxFriendRequests),
+    loadCommunityUsers(`friendRequests/${uid}/outgoing`, maxFriendRequests),
+  ]);
+
+  return {
+    uid,
+    friends,
+    incomingRequests,
+    outgoingRequests,
+  };
+});
+
+exports.loadFriendRanking = onCall(callableOptions, async (request) => {
   const uid = requireUid(request);
   const now = Date.now();
   const refreshRef = db.ref(`rankingRefreshes/${uid}`);
@@ -225,6 +318,45 @@ async function loadFriendUids(uid) {
     }
   }
   return [...uids];
+}
+
+async function loadCommunityUsers(path, maxItems = maxCommunityFriends) {
+  const snapshot = await db.ref(path).limitToFirst(maxItems).get();
+  const users = [];
+  snapshot.forEach((child) => {
+    const value = child.val();
+    users.push({
+      uid: readOptionalString(value?.uid, 128) ?? child.key,
+      displayName: readOptionalString(value?.displayName, 80),
+      updatedAtMillis: readInt(value?.updatedAtMillis, 0),
+    });
+  });
+  return users;
+}
+
+async function countChildren(path) {
+  const snapshot = await db.ref(path).get();
+  let count = 0;
+  snapshot.forEach(() => {
+    count += 1;
+  });
+  return count;
+}
+
+async function loadAuthUser(uid) {
+  try {
+    return await admin.auth().getUser(uid);
+  } catch (_) {
+    return null;
+  }
+}
+
+function communityUserRecord(uid, user, now) {
+  return {
+    uid,
+    updatedAtMillis: now,
+    ...(user.displayName ? {displayName: user.displayName.slice(0, 80)} : {}),
+  };
 }
 
 async function loadRankingEntries(currentUid, uids) {

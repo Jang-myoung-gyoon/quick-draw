@@ -1279,6 +1279,26 @@ void main() {
     expect(game.children.whereType<FloatingObject>(), isEmpty);
   });
 
+  test('vertical ultimate slash uses a one point five second sprite sheet', () {
+    expect(UltimateSlashEffect.frameCount, 24);
+    expect(UltimateSlashEffect.columns, 4);
+    expect(UltimateSlashEffect.duration, 1.5);
+    expect(UltimateSlashEffect.frameDuration, closeTo(1.5 / 24, 0.0001));
+    expect(UltimateSlashEffect.frameSize, Vector2(360, 640));
+  });
+
+  test('bonus collection does not spawn green slice particles', () {
+    final game = QuickDrawGame()
+      ..player = PlayerComponent()
+      ..health = 0.35;
+
+    game.triggerBonusCollected(Vector2(180, 260));
+    game.processLifecycleEvents();
+
+    expect(game.children.whereType<SliceParticleEmitter>(), isEmpty);
+    expect(game.health, game.maxHealth);
+  });
+
   test('bonus object can be collected along a fast dash movement segment', () {
     expect(
       PlayerComponent.movementTouchesBonus(

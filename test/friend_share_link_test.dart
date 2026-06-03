@@ -28,7 +28,7 @@ void main() {
       isNull,
     );
     expect(
-      FriendShareLink.shouldAutoAdd(inviterUid: 'me', currentUid: 'me'),
+      FriendShareLink.shouldAutoRequest(inviterUid: 'me', currentUid: 'me'),
       isFalse,
     );
   });

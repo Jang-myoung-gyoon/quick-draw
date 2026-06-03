@@ -3,6 +3,51 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../game/quick_draw_game.dart';
 
+class UltimateSlashEffect extends SpriteAnimationComponent
+    with HasGameReference<QuickDrawGame> {
+  static const String spriteSheetPath =
+      'effects/sky_cleave_rising_straight_slash_sheet.png';
+  static const int frameCount = 24;
+  static const int columns = 4;
+  static const double duration = 1.5;
+  static const double frameDuration = duration / frameCount;
+  static final Vector2 frameSize = Vector2(360, 640);
+
+  double _elapsed = 0.0;
+
+  UltimateSlashEffect({required Vector2 bottomCenter})
+    : super(position: bottomCenter, anchor: Anchor.bottomCenter, priority: 40);
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    final image = await game.images.load(spriteSheetPath);
+    animation = SpriteAnimation.fromFrameData(
+      image,
+      SpriteAnimationData.sequenced(
+        amount: frameCount,
+        stepTime: frameDuration,
+        textureSize: frameSize,
+        amountPerRow: columns,
+        loop: false,
+      ),
+    );
+
+    final viewportHeight = game.size.y > 0 ? game.size.y : frameSize.y;
+    final effectHeight = max(viewportHeight, position.y + 160.0);
+    size = Vector2(effectHeight * frameSize.x / frameSize.y, effectHeight);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _elapsed += dt;
+    if (_elapsed >= duration) {
+      removeFromParent();
+    }
+  }
+}
+
 class SlashPathLine extends Component with HasGameReference<QuickDrawGame> {
   final List<Vector2> waypoints;
 

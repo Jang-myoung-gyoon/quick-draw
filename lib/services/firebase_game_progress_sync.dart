@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../firebase_options.dart';
+import 'friend_community.dart';
 import 'friend_ranking.dart';
 import 'friend_share_link.dart';
 import 'game_progress_snapshot.dart';
@@ -23,6 +24,10 @@ class FirebaseGameProgressSync {
        _rankingStore = rankingStore;
 
   static final FirebaseGameProgressSync instance = FirebaseGameProgressSync();
+
+  @visibleForTesting
+  static String anonymousDisplayNameForTest(String uid) =>
+      _anonymousDisplayName(uid);
 
   FirebaseAuth? _auth;
   FirebaseFunctions? _functions;
@@ -47,10 +52,12 @@ class FirebaseGameProgressSync {
     _auth ??= FirebaseAuth.instance;
     _functions ??= FirebaseFunctions.instanceFor(region: 'us-central1');
 
+    await _completeRedirectSignInIfAny();
     final user = _auth!.currentUser ?? (await _auth!.signInAnonymously()).user;
     if (user == null) {
       return;
     }
+    await _ensureAnonymousDisplayName(user);
     await _saveAccount(user);
     _initialized = true;
 
@@ -67,39 +74,15 @@ class FirebaseGameProgressSync {
       return;
     }
 
-    final localBeforeSignIn = await _store.loadLocal();
     final provider = GoogleAuthProvider()
       ..setCustomParameters({'prompt': 'select_account'});
-    UserCredential credential;
     final current = auth.currentUser;
 
     if (current != null && current.isAnonymous) {
-      try {
-        credential = await current.linkWithPopup(provider);
-      } on FirebaseAuthException catch (error) {
-        if (error.code != 'credential-already-in-use' &&
-            error.code != 'provider-already-linked' &&
-            error.code != 'email-already-in-use') {
-          rethrow;
-        }
-        credential = await auth.signInWithPopup(provider);
-      }
+      await current.linkWithRedirect(provider);
     } else {
-      credential = await auth.signInWithPopup(provider);
+      await auth.signInWithRedirect(provider);
     }
-
-    final user = credential.user;
-    if (user == null) {
-      return;
-    }
-    await _saveAccount(user);
-
-    final remote = await _loadRemoteProgressSafely(user.uid);
-    final merged = remote == null
-        ? localBeforeSignIn
-        : localBeforeSignIn.merge(remote);
-    await _store.saveLocal(merged);
-    await _saveRemoteProgressSafely(merged, uid: user.uid);
   }
 
   Future<void> restoreRemoteProgressToLocal() async {
@@ -171,20 +154,42 @@ class FirebaseGameProgressSync {
     );
   }
 
-  Future<void> addFriend(String friendUid) async {
+  Future<FriendCommunitySnapshot> loadCommunitySnapshot() async {
+    await initialize();
+    final user = currentUser;
+    if (user == null) {
+      return const FriendCommunitySnapshot(
+        uid: '',
+        friends: [],
+        incomingRequests: [],
+        outgoingRequests: [],
+      );
+    }
+    final data = await _callFunction('loadCommunity', const {});
+    return FriendCommunitySnapshot.fromJson({
+      ...data,
+      'uid': data['uid'] ?? user.uid,
+    });
+  }
+
+  Future<void> sendFriendRequest(String friendUid) async {
     await initialize();
     final user = currentUser;
     final targetUid = friendUid.trim();
     if (user == null || targetUid.isEmpty || targetUid == user.uid) {
       return;
     }
-    await _callFunction('addFriend', {'friendUid': targetUid});
-    final snapshot = await _loadFriendRankingFromRemoteSafely(
-      DateTime.now().millisecondsSinceEpoch,
-    );
-    if (snapshot != null) {
-      await _rankingStore.saveFriendRankingCache(snapshot);
+    await _callFunction('sendFriendRequest', {'friendUid': targetUid});
+  }
+
+  Future<void> acceptFriendRequest(String requesterUid) async {
+    await initialize();
+    final user = currentUser;
+    final targetUid = requesterUid.trim();
+    if (user == null || targetUid.isEmpty || targetUid == user.uid) {
+      return;
     }
+    await _callFunction('acceptFriendRequest', {'requesterUid': targetUid});
   }
 
   Future<void> addInviterFromCurrentUri() async {
@@ -193,13 +198,13 @@ class FirebaseGameProgressSync {
       return;
     }
     final inviterUid = FriendShareLink.inviterUid(Uri.base);
-    if (!FriendShareLink.shouldAutoAdd(
+    if (!FriendShareLink.shouldAutoRequest(
       inviterUid: inviterUid,
       currentUid: user.uid,
     )) {
       return;
     }
-    await addFriend(inviterUid!);
+    await sendFriendRequest(inviterUid!);
   }
 
   Future<GameProgressSnapshot?> loadRemoteProgress(String uid) async {
@@ -234,6 +239,82 @@ class FirebaseGameProgressSync {
       uid: user.uid,
       provider: user.isAnonymous ? 'anonymous' : 'google',
     );
+  }
+
+  Future<void> _completeRedirectSignInIfAny() async {
+    final auth = _auth;
+    if (auth == null) {
+      return;
+    }
+    try {
+      final credential = await auth.getRedirectResult();
+      final user = credential.user;
+      if (user == null) {
+        return;
+      }
+      await _mergeSignedInUserProgress(user);
+    } on FirebaseAuthException catch (error) {
+      if (error.code != 'no-auth-event') {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _mergeSignedInUserProgress(User user) async {
+    await _saveAccount(user);
+    if (user.isAnonymous) {
+      return;
+    }
+    final local = await _store.loadLocal();
+    final remote = await _loadRemoteProgressSafely(user.uid);
+    final merged = remote == null ? local : local.merge(remote);
+    await _store.saveLocal(merged);
+    await _saveRemoteProgressSafely(merged, uid: user.uid);
+  }
+
+  Future<void> _ensureAnonymousDisplayName(User user) async {
+    if (!user.isAnonymous || user.displayName?.trim().isNotEmpty == true) {
+      return;
+    }
+    try {
+      await user.updateDisplayName(_anonymousDisplayName(user.uid));
+      await user.reload();
+    } catch (_) {
+      // A missing anonymous display name should not block local play.
+    }
+  }
+
+  static String _anonymousDisplayName(String uid) {
+    const adjectives = [
+      '몽실한',
+      '보송한',
+      '달콤한',
+      '말랑한',
+      '반짝이는',
+      '포근한',
+      '깡총대는',
+      '새침한',
+      '용감한',
+      '졸린',
+    ];
+    const nouns = [
+      '토끼',
+      '당근',
+      '솜방울',
+      '달토끼',
+      '풀잎',
+      '구름',
+      '별조각',
+      '찹쌀떡',
+      '민들레',
+      '리본',
+    ];
+    final hash = uid.codeUnits.fold<int>(
+      0,
+      (value, unit) => (value * 31 + unit) & 0x7fffffff,
+    );
+    return '${adjectives[hash % adjectives.length]} '
+        '${nouns[(hash ~/ adjectives.length) % nouns.length]}';
   }
 
   Future<GameProgressSnapshot?> _loadRemoteProgressSafely(String uid) async {

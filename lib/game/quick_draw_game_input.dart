@@ -152,6 +152,8 @@ extension QuickDrawGameInput on QuickDrawGame {
     removeOverlayIfRegistered('GameOverScreen');
     removeOverlayIfRegistered('UpgradeScreen');
     removeOverlayIfRegistered('SettingsScreen');
+    removeOverlayIfRegistered('CommunityScreen');
+    removeOverlayIfRegistered('FriendsScreen');
     addOverlayIfRegistered('HUD');
 
     isPlaying = true;
@@ -204,6 +206,14 @@ extension QuickDrawGameInput on QuickDrawGame {
       hideRanking();
       return true;
     }
+    if (overlays.activeOverlays.contains('FriendsScreen')) {
+      hideFriends();
+      return true;
+    }
+    if (overlays.activeOverlays.contains('CommunityScreen')) {
+      hideCommunity();
+      return true;
+    }
     return false;
   }
 
@@ -245,9 +255,41 @@ extension QuickDrawGameInput on QuickDrawGame {
     removeOverlayIfRegistered('UpgradeScreen');
     removeOverlayIfRegistered('GameOverScreen');
     removeOverlayIfRegistered('RankingScreen');
+    removeOverlayIfRegistered('CommunityScreen');
+    removeOverlayIfRegistered('FriendsScreen');
     removeOverlayIfRegistered('HUD');
     addOverlayIfRegistered('StartScreen');
     startHomeBgm();
+  }
+
+  void showCommunity() {
+    overlays.remove('FriendsScreen');
+    addOverlayIfRegistered('CommunityScreen', priority: 140);
+  }
+
+  void hideCommunity() {
+    overlays.remove('CommunityScreen');
+  }
+
+  void showFriends() {
+    overlays.remove('CommunityScreen');
+    addOverlayIfRegistered('FriendsScreen', priority: 150);
+  }
+
+  void hideFriends() {
+    overlays.remove('FriendsScreen');
+  }
+
+  Future<FriendCommunitySnapshot> loadCommunitySnapshot() {
+    return _firebaseSync.loadCommunitySnapshot();
+  }
+
+  Future<void> sendFriendRequest(String friendUid) {
+    return _firebaseSync.sendFriendRequest(friendUid);
+  }
+
+  Future<void> acceptFriendRequest(String requesterUid) {
+    return _firebaseSync.acceptFriendRequest(requesterUid);
   }
 
   void showAchievements() {
@@ -281,20 +323,18 @@ extension QuickDrawGameInput on QuickDrawGame {
     return _firebaseSync.loadFriendRankingSnapshot();
   }
 
-  Future<void> addFriendByUid(String friendUid) {
-    return _firebaseSync.addFriend(friendUid);
-  }
-
   String? get currentUserIdForRanking => _firebaseSync.currentUser?.uid;
 
-  Future<void> shareFriendInviteLink() async {
+  Future<String?> buildFriendInviteLink() async {
     await _firebaseSync.initialize();
     final uid = _firebaseSync.currentUser?.uid;
     if (uid == null || uid.isEmpty) {
-      return;
+      return null;
     }
-    await link_share.shareFriendLink(uid);
+    return link_share.friendInviteLink(uid);
   }
+
+  String buildPlainAppLink() => link_share.plainAppLink();
 
   Future<void> recordFinalScore() {
     final progress = currentProgressSnapshot();

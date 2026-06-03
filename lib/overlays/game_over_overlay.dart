@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../game/quick_draw_game.dart';
+import 'friend_invite_dialog.dart';
 
 class GameOverOverlay extends StatelessWidget {
   final QuickDrawGame game;
@@ -83,7 +84,7 @@ class GameOverOverlay extends StatelessWidget {
                       label: t.shareLink,
                       onPressed: () {
                         game.playSound(GameSound.uiSelect);
-                        game.shareFriendInviteLink();
+                        showFriendInviteDialog(context, game: game);
                       },
                       isPrimary: false,
                     ),

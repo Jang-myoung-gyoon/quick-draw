@@ -20,6 +20,7 @@ import '../models/achievement.dart';
 import '../models/game_text.dart';
 import '../models/audio.dart';
 import '../services/firebase_game_progress_sync.dart';
+import '../services/friend_community.dart';
 import '../services/friend_ranking.dart';
 import '../services/game_progress_snapshot.dart';
 import '../services/game_progress_store.dart';

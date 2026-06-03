@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../game/quick_draw_game.dart';
+import 'friend_invite_dialog.dart';
 
 class StartOverlay extends StatefulWidget {
   static const String homeBackgroundAsset =
@@ -16,8 +17,6 @@ class StartOverlay extends StatefulWidget {
 
 class _StartOverlayState extends State<StartOverlay> {
   bool _audioTriggered = false;
-  bool _isSigningInWithGoogle = false;
-  String? _authMessage;
 
   @override
   void initState() {
@@ -60,6 +59,34 @@ class _StartOverlayState extends State<StartOverlay> {
                       Colors.black.withValues(alpha: 0.36),
                     ],
                     stops: const [0.0, 0.52, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 44,
+              left: 24,
+              child: SizedBox(
+                width: 76,
+                height: 76,
+                child: IconButton(
+                  key: const ValueKey('home-community-button'),
+                  tooltip: t.community,
+                  onPressed: () {
+                    game.playSound(GameSound.uiSelect);
+                    game.showCommunity();
+                  },
+                  icon: const Icon(Icons.groups),
+                  iconSize: 38,
+                  color: const Color(0xFF00FFCC),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(
+                      0xFF05060A,
+                    ).withValues(alpha: 0.68),
+                    side: const BorderSide(color: Color(0xFF00FFCC), width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -167,85 +194,12 @@ class _StartOverlayState extends State<StartOverlay> {
                   const SizedBox(height: 14),
                   SizedBox(
                     width: 420,
-                    height: 56,
-                    child: OutlinedButton.icon(
-                      key: const ValueKey('home-google-login-button'),
-                      onPressed: _isSigningInWithGoogle
-                          ? null
-                          : () async {
-                              game.playSound(GameSound.uiSelect);
-                              setState(() {
-                                _isSigningInWithGoogle = true;
-                              });
-                              try {
-                                await game.signInWithGoogleAndSyncProgress();
-                                _authMessage = game.text.isKo
-                                    ? 'Google 로그인 완료'
-                                    : 'Google signed in';
-                              } catch (_) {
-                                _authMessage = game.text.isKo
-                                    ? 'Google 로그인 실패'
-                                    : 'Google sign-in failed';
-                              } finally {
-                                if (mounted) {
-                                  setState(() {
-                                    _isSigningInWithGoogle = false;
-                                  });
-                                }
-                              }
-                            },
-                      icon: _isSigningInWithGoogle
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF00FFCC),
-                              ),
-                            )
-                          : const Icon(Icons.login),
-                      label: Text(t.isKo ? 'Google 로그인' : 'Google Sign In'),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.black.withValues(alpha: 0.38),
-                        foregroundColor: Colors.white,
-                        disabledForegroundColor: Colors.white.withValues(
-                          alpha: 0.55,
-                        ),
-                        side: const BorderSide(
-                          color: Color(0xFF00FFCC),
-                          width: 2,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_authMessage != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _authMessage!,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: 420,
                     height: 62,
                     child: OutlinedButton.icon(
                       key: const ValueKey('home-share-link-button'),
                       onPressed: () {
                         game.playSound(GameSound.uiSelect);
-                        game.shareFriendInviteLink();
+                        showFriendInviteDialog(context, game: game);
                       },
                       icon: const Icon(Icons.ios_share),
                       label: Text(t.shareLink),

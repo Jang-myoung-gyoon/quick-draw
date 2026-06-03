@@ -13,7 +13,7 @@ class FriendShareLink {
     return value;
   }
 
-  static bool shouldAutoAdd({
+  static bool shouldAutoRequest({
     required String? inviterUid,
     required String? currentUid,
   }) {

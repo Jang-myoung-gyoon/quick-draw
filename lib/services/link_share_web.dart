@@ -6,10 +6,12 @@ import 'friend_share_link.dart';
 
 Uri currentAppUri() => Uri.parse(html.window.location.href);
 
-Future<void> shareFriendLink(String uid) async {
-  final link = FriendShareLink.build(
+String friendInviteLink(String uid) {
+  return FriendShareLink.build(
     currentUri: currentAppUri(),
     uid: uid,
   ).toString();
-  await html.window.navigator.clipboard?.writeText(link);
 }
+
+String plainAppLink() =>
+    currentAppUri().replace(queryParameters: {}).toString();

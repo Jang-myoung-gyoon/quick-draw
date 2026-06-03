@@ -83,6 +83,7 @@ flutter:
     - assets/images/targets/target_stage_2.png
     - assets/images/targets/target_stage_3.png
     - assets/images/sprites/enemies/sheets/squirrel_laser_idle_sheet.png
+    - assets/images/effects/sky_cleave_rising_straight_slash_sheet.png
     - assets/images/sprites/player/actions/nori_dash_start.png
     - assets/images/sprites/player/actions/nori_slash_end.png
     - assets/images/sprites/player/sheets/nori_freefall_sheet.png

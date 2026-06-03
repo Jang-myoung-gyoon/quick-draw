@@ -15,21 +15,13 @@ class RankingOverlay extends StatefulWidget {
 }
 
 class _RankingOverlayState extends State<RankingOverlay> {
-  final TextEditingController _friendUidController = TextEditingController();
   Future<FriendRankingSnapshot>? _rankingLoad;
   _RankingTab _tab = _RankingTab.score;
-  bool _isAddingFriend = false;
 
   @override
   void initState() {
     super.initState();
     _rankingLoad = widget.game.loadFriendRankingSnapshot();
-  }
-
-  @override
-  void dispose() {
-    _friendUidController.dispose();
-    super.dispose();
   }
 
   @override
@@ -75,13 +67,6 @@ class _RankingOverlayState extends State<RankingOverlay> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  _FriendPanel(
-                    game: game,
-                    controller: _friendUidController,
-                    isAddingFriend: _isAddingFriend,
-                    onAddFriend: _addFriend,
                   ),
                   const SizedBox(height: 14),
                   Row(
@@ -220,124 +205,6 @@ class _RankingOverlayState extends State<RankingOverlay> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Future<void> _addFriend() async {
-    setState(() {
-      _isAddingFriend = true;
-    });
-    try {
-      await widget.game.addFriendByUid(_friendUidController.text);
-      _friendUidController.clear();
-      _rankingLoad = widget.game.loadFriendRankingSnapshot();
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAddingFriend = false;
-        });
-      }
-    }
-  }
-}
-
-class _FriendPanel extends StatelessWidget {
-  const _FriendPanel({
-    required this.game,
-    required this.controller,
-    required this.isAddingFriend,
-    required this.onAddFriend,
-  });
-
-  final QuickDrawGame game;
-  final TextEditingController controller;
-  final bool isAddingFriend;
-  final VoidCallback onAddFriend;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = game.text;
-    final uid = game.currentUserIdForRanking ?? '-';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF101522).withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${t.friendCode}: $uid',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.72),
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  key: const ValueKey('friend-uid-input'),
-                  controller: controller,
-                  minLines: 1,
-                  maxLines: 1,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: t.friendUidHint,
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.42),
-                    ),
-                    filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.28),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  key: const ValueKey('add-friend-button'),
-                  onPressed: isAddingFriend ? null : onAddFriend,
-                  icon: isAddingFriend
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.black,
-                          ),
-                        )
-                      : const Icon(Icons.person_add),
-                  label: Text(t.addFriend),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00FFCC),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
