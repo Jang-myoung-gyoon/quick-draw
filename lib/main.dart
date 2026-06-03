@@ -8,12 +8,19 @@ import 'game/quick_draw_game.dart';
 import 'overlays/achievements_overlay.dart';
 import 'overlays/game_over_overlay.dart';
 import 'overlays/hud_overlay.dart';
+import 'overlays/ranking_overlay.dart';
 import 'overlays/settings_overlay.dart';
 import 'overlays/start_overlay.dart';
 import 'overlays/upgrade_overlay.dart';
+import 'services/firebase_game_progress_sync.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await FirebaseGameProgressSync.instance.initialize();
+  } catch (_) {
+    // Firebase setup should not prevent the local web game from opening.
+  }
   await configureFullscreenSystemUi();
   runApp(const MyGameApp());
 }
@@ -119,6 +126,8 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
                                     UpgradeOverlay(game: game),
                                 'AchievementsScreen': (context, game) =>
                                     AchievementsOverlay(game: game),
+                                'RankingScreen': (context, game) =>
+                                    RankingOverlay(game: game),
                                 'SettingsScreen': (context, game) =>
                                     SettingsOverlay(game: game),
                               },

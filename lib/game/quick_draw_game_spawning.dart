@@ -11,6 +11,7 @@ extension QuickDrawGameSpawning on QuickDrawGame {
 
   void maintainFloatingObjectCount() {
     if (!isPlaying) return;
+    if (isTutorialActive) return;
     if (!lastCameraShiftAllowsReplacementSpawn()) return;
 
     final visibleObjects = children
@@ -47,9 +48,17 @@ extension QuickDrawGameSpawning on QuickDrawGame {
   }
 
   bool lastCameraShiftAllowsReplacementSpawn() {
-    final verticalScroll = _lastCameraShift.y.abs() >= _lastCameraShift.x.abs();
-    return verticalScroll && _lastCameraShift.y >= 0;
+    return isTopReplacementCameraShift(_lastCameraShift) ||
+        isSideReplacementCameraShift(_lastCameraShift);
   }
+
+  bool isTopReplacementCameraShift(Vector2 cameraShift) {
+    final verticalScroll = cameraShift.y.abs() >= cameraShift.x.abs();
+    return verticalScroll && cameraShift.y >= 0;
+  }
+
+  bool isSideReplacementCameraShift(Vector2 cameraShift) =>
+      cameraShift.x.abs() > cameraShift.y.abs();
 
   bool isFloatingObjectVisible(FloatingObject object) {
     final halfWidth = object.size.x / 2;
@@ -72,7 +81,11 @@ extension QuickDrawGameSpawning on QuickDrawGame {
       cameraShift: _lastCameraShift,
     );
 
-    return spawnSingleObject(position.x, position.y);
+    return spawnSingleObject(
+      position.x,
+      position.y,
+      allowAttackObjects: !isSideReplacementCameraShift(_lastCameraShift),
+    );
   }
 
   Vector2 replacementBoundarySpawnPosition({
@@ -84,7 +97,7 @@ extension QuickDrawGameSpawning on QuickDrawGame {
       min(size.x, size.y) * 0.24,
     );
 
-    Vector2 sampleCandidate() {
+    Vector2 sampleTopCandidate() {
       final y = randomInRange(
         QuickDrawGame._spawnInset,
         QuickDrawGame._spawnInset + edgeBand,
@@ -97,6 +110,28 @@ extension QuickDrawGameSpawning on QuickDrawGame {
         y,
       );
     }
+
+    Vector2 sampleSideCandidate() {
+      final spawnsFromLeft = cameraShift.x > 0;
+      final x = spawnsFromLeft
+          ? randomInRange(
+              QuickDrawGame._spawnInset,
+              QuickDrawGame._spawnInset + edgeBand,
+            )
+          : randomInRange(
+              size.x - QuickDrawGame._spawnInset - edgeBand,
+              size.x - QuickDrawGame._spawnInset,
+            );
+      final maxSideSpawnY = max(QuickDrawGame._spawnInset, size.y * 2 / 3);
+      return Vector2(
+        x,
+        randomInRange(QuickDrawGame._spawnInset, maxSideSpawnY),
+      );
+    }
+
+    Vector2 sampleCandidate() => isSideReplacementCameraShift(cameraShift)
+        ? sampleSideCandidate()
+        : sampleTopCandidate();
 
     var candidate = sampleCandidate();
     final minimumDistance = 90.0 + random.nextDouble() * 150.0;
@@ -127,7 +162,11 @@ extension QuickDrawGameSpawning on QuickDrawGame {
   FloatingObject spawnFloatingObjectForTest(double x, double y) =>
       spawnSingleObject(x, y);
 
-  FloatingObject spawnSingleObject(double x, double y) {
+  FloatingObject spawnSingleObject(
+    double x,
+    double y, {
+    bool allowAttackObjects = true,
+  }) {
     if (stageLevel == 1) {
       final target = SlashTarget(durability: 1)..position = Vector2(x, y);
       add(target);
@@ -143,6 +182,16 @@ extension QuickDrawGameSpawning on QuickDrawGame {
       _spawnsSinceLastBonus = 0;
       updateChainHighlighting();
       return bonus;
+    }
+
+    if (!allowAttackObjects) {
+      final target = SlashTarget(
+        durability: 1 + random.nextInt(maxTargetDurabilityForStage(stageLevel)),
+      )..position = Vector2(x, y);
+      add(target);
+      recordNonBonusSpawn();
+      updateChainHighlighting();
+      return target;
     }
 
     final laserChance = laserTargetSpawnChance;
@@ -280,7 +329,10 @@ extension QuickDrawGameSpawning on QuickDrawGame {
   }
 
   void resolveFloatingObjectRepulsion() {
-    final objects = children.whereType<FloatingObject>().toList();
+    final objects = children
+        .whereType<FloatingObject>()
+        .where((object) => !object.shouldRemoveAsMissed())
+        .toList();
     if (objects.length < 2) return;
 
     for (int i = 0; i < objects.length; i++) {

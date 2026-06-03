@@ -6,7 +6,6 @@ import 'package:flame/game.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../components/background.dart';
 import '../components/effects.dart';
@@ -20,6 +19,14 @@ import '../models/upgrade.dart';
 import '../models/achievement.dart';
 import '../models/game_text.dart';
 import '../models/audio.dart';
+import '../services/firebase_game_progress_sync.dart';
+import '../services/friend_ranking.dart';
+import '../services/game_progress_snapshot.dart';
+import '../services/game_progress_store.dart';
+import '../services/link_share_stub.dart'
+    if (dart.library.html) '../services/link_share_web.dart'
+    as link_share;
+import '../services/score_record.dart';
 
 export '../models/upgrade.dart';
 export '../models/achievement.dart';
@@ -33,20 +40,27 @@ part 'quick_draw_game_spawning.dart';
 part 'quick_draw_game_shards.dart';
 part 'quick_draw_game_audio.dart';
 part 'quick_draw_game_achievements.dart';
+part 'quick_draw_game_tutorial.dart';
+
+enum TutorialPhase {
+  inactive,
+  firstSlash,
+  upgradeChoice,
+  chainedSlash,
+  ultimateSlash,
+}
 
 class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
-  static const String _achievementBestStageKey =
-      'quick_draw.achievements.best_stage';
-  static const String _achievementBestCharacterKey =
-      'quick_draw.achievements.best_character';
-  static const String _achievementBestScoreKey =
-      'quick_draw.achievements.best_score';
-  static const String _achievementSelectedUpgradesKey =
-      'quick_draw.achievements.selected_upgrades';
-  static const String _achievementMaxedUpgradesKey =
-      'quick_draw.achievements.maxed_upgrades';
-  static const String _achievementAcknowledgedKey =
-      'quick_draw.achievements.acknowledged';
+  QuickDrawGame({
+    GameProgressStore progressStore = const GameProgressStore(),
+    FirebaseGameProgressSync? firebaseSync,
+  }) : _progressStore = progressStore,
+       _firebaseSync = firebaseSync ?? FirebaseGameProgressSync.instance;
+
+  final GameProgressStore _progressStore;
+  final FirebaseGameProgressSync _firebaseSync;
+  static const double initialPassiveDrainRate = 0.06435;
+  static const int earlyDrainBonusFadeOutStage = 20;
 
   FallingBackground? background;
   late PlayerComponent player;
@@ -63,7 +77,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   double health = 1.1;
   static const double hiddenEnergyReserve = 0.1;
   final double maxHealth = 1.0 + hiddenEnergyReserve;
-  double passiveDrainRate = 0.06435; // Drains fully in ~16 seconds if idle
+  double passiveDrainRate = initialPassiveDrainRate;
 
   // Experience Gauge (0.0 to 1.0)
   double experience = 0.0;
@@ -100,7 +114,15 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   String? achievementToastMessage;
   double achievementToastTimer = 0.0;
   bool _achievementProgressLoaded = false;
+  bool _tutorialCompleted = false;
+  bool _tutorialProgressLoaded = false;
+  TutorialPhase _tutorialPhase = TutorialPhase.inactive;
+  bool _tutorialChainTargetsPrepared = false;
+  bool _tutorialBonusTargetPrepared = false;
+  bool _tutorialBonusTargetCollected = false;
+  bool _tutorialScorePenaltyActive = false;
   Future<void>? _achievementProgressLoad;
+  Future<void>? _scoreRecordSave;
   int _pendingExperienceHits = 0;
   final List<Vector2> _pendingLaserAttackOrigins = [];
   int _spawnsSinceLastBonus = 0;
@@ -167,6 +189,16 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
     return max(200, reducedInterval.round());
   }
 
+  static double inputDrainMultiplierForStage(int level) {
+    final stageLevel = max(1, level);
+    final baseMultiplier = 1.0 + (stageLevel - 1) * 0.28;
+    final earlyBonusProgress =
+        ((earlyDrainBonusFadeOutStage - stageLevel) /
+                (earlyDrainBonusFadeOutStage - 1))
+            .clamp(0.0, 1.0);
+    return baseMultiplier + 0.2 * earlyBonusProgress;
+  }
+
   double get criticalStrikeChance => min(1.0, criticalStrikeLevel * 0.15);
   double get laserTargetSpawnChance {
     if (stageLevel < 2) {
@@ -221,7 +253,9 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
     }
     language = value;
     currentUpgradeChoices = isChoosingUpgrade
-        ? recommendedUpgradeChoices()
+        ? (_tutorialPhase == TutorialPhase.upgradeChoice
+              ? tutorialUpgradeChoices()
+              : recommendedUpgradeChoices())
         : const [];
     achievementRevision.value++;
   }
@@ -328,8 +362,12 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   }
 
   // Slow motion factor when chaining targets (bullet time)
-  double get speedMultiplier =>
-      (currentChainPoints.isNotEmpty && !player.isDashing) ? 0.25 : 1.0;
+  double get speedMultiplier {
+    if (isTutorialWaitingForInput) {
+      return 0.0;
+    }
+    return (currentChainPoints.isNotEmpty && !player.isDashing) ? 0.25 : 1.0;
+  }
 
   @override
   Future<void> onLoad() async {
@@ -378,6 +416,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
     if (upgradeInputLockTimer > 0) {
       upgradeInputLockTimer = max(0.0, upgradeInputLockTimer - dt);
     }
+    prepareTutorialInputTargetsIfReady();
 
     // Apply speed multiplier (time dilation)
     final double adjustedDt = dt * speedMultiplier;
@@ -411,7 +450,9 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
     }
 
     // Handle chain expiration timer (using real delta time so bullet time doesn't freeze the timer)
-    if (currentChainPoints.isNotEmpty && !player.isDashing) {
+    if (currentChainPoints.isNotEmpty &&
+        !player.isDashing &&
+        !isTutorialWaitingForInput) {
       chainTimer += dt;
       if (chainTimer >= maxChainTime) {
         executeChainSlash();
@@ -435,6 +476,7 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
     canvas.restore();
     renderLowHealthWarning(canvas);
     renderLaserTargetIndicators(canvas);
+    renderTutorialGuide(canvas);
   }
 
   @override

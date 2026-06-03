@@ -72,12 +72,23 @@ class _UpgradeOverlayState extends State<UpgradeOverlay> {
                         for (var i = 0; i < choices.length; i++) ...[
                           if (i > 0) const SizedBox(width: 18),
                           Expanded(
-                            child: _UpgradeButton(
-                              option: choices[i],
-                              text: widget.game.text,
-                              enabled: canChoose,
-                              onPressed: () =>
-                                  widget.game.chooseUpgrade(choices[i]),
+                            child: Builder(
+                              builder: (context) {
+                                final canChooseOption = widget.game
+                                    .canChooseUpgradeOption(choices[i]);
+                                final isTutorialChoice =
+                                    widget.game.isTutorialUpgradeChoiceActive;
+                                return _UpgradeButton(
+                                  option: choices[i],
+                                  text: widget.game.text,
+                                  enabled: canChoose && canChooseOption,
+                                  highlighted: widget.game
+                                      .isTutorialUpgradeFocus(choices[i]),
+                                  masked: isTutorialChoice && !canChooseOption,
+                                  onPressed: () =>
+                                      widget.game.chooseUpgrade(choices[i]),
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -157,12 +168,16 @@ class _UpgradeButton extends StatelessWidget {
   final UpgradeOption option;
   final GameText text;
   final bool enabled;
+  final bool highlighted;
+  final bool masked;
   final VoidCallback onPressed;
 
   const _UpgradeButton({
     required this.option,
     required this.text,
     required this.enabled,
+    required this.highlighted,
+    required this.masked,
     required this.onPressed,
   });
 
@@ -198,6 +213,28 @@ class _UpgradeButton extends StatelessWidget {
 
           return Stack(
             children: [
+              if (highlighted)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    key: const ValueKey('tutorial-upgrade-focus'),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF00FFCC),
+                        width: 4,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF00FFCC,
+                          ).withValues(alpha: 0.55),
+                          blurRadius: 20,
+                          spreadRadius: 3,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               Positioned(
                 top: 14,
                 left: 16,
@@ -293,6 +330,16 @@ class _UpgradeButton extends StatelessWidget {
                   ),
                 ),
               ),
+              if (masked)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    key: const ValueKey('tutorial-upgrade-disabled-mask'),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.58),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
             ],
           );
         },

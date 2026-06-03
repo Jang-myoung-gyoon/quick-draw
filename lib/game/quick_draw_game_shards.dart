@@ -13,6 +13,7 @@ extension QuickDrawGameShards on QuickDrawGame {
     if (target != null) {
       final experienceReward = experienceRewardForTarget(target);
       _pendingExperienceHits += experienceReward;
+      onTutorialTargetSliced();
       spawnExperienceShards(hitPoint, experienceReward);
       if (target is LaserTarget) {
         spawnEnergyShards(hitPoint, target.durability);
@@ -183,6 +184,7 @@ extension QuickDrawGameShards on QuickDrawGame {
   void triggerBonusCollected(Vector2 hitPoint) {
     playSound(GameSound.bonusCollect);
     spawnSliceParticles(hitPoint, const Color(0xFF22C55E));
+    onTutorialBonusCollected();
     activateUltimate();
   }
 

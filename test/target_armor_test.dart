@@ -123,7 +123,7 @@ void main() {
     expect(target.filledHealthBarSegmentsForAttackPower(2), 3);
   });
 
-  test('laser targets only miss below the screen', () {
+  test('laser targets ignore normal side drift within half-screen margin', () {
     final game = QuickDrawGame();
     game.onGameResize(Vector2(400, 800));
     final target = LaserTarget(maxStageDurability: 7);
@@ -132,6 +132,26 @@ void main() {
 
     target.position = Vector2(-200, 100);
     expect(target.shouldRemoveAsMissed(), isFalse);
+
+    target.position = Vector2(600, 100);
+    expect(target.shouldRemoveAsMissed(), isFalse);
+  });
+
+  test('laser targets miss outside side, top, and bottom bounds', () {
+    final game = QuickDrawGame();
+    game.onGameResize(Vector2(400, 800));
+    final target = LaserTarget(maxStageDurability: 7);
+    game.add(target);
+    game.processLifecycleEvents();
+
+    target.position = Vector2(-201, 100);
+    expect(target.shouldRemoveAsMissed(), isTrue);
+
+    target.position = Vector2(601, 100);
+    expect(target.shouldRemoveAsMissed(), isTrue);
+
+    target.position = Vector2(200, -401);
+    expect(target.shouldRemoveAsMissed(), isTrue);
 
     target.position = Vector2(200, 900);
     expect(target.shouldRemoveAsMissed(), isTrue);

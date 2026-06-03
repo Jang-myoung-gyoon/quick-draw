@@ -12,6 +12,21 @@ class GameText {
   String get appTitle => isKo ? '발도술 키우기' : 'Battoujutsu Slasher';
   String get gameStart => isKo ? '게임 시작' : 'GAME START';
   String get achievements => isKo ? '업적' : 'ACHIEVEMENTS';
+  String get ranking => isKo ? '랭킹' : 'RANKING';
+  String get scoreRanking => isKo ? '스코어 랭킹' : 'SCORE';
+  String get achievementRanking => isKo ? '업적 점수' : 'ACHIEVEMENT';
+  String get noRankingRecords =>
+      isKo ? '아직 기록이 없습니다.' : 'No score records yet.';
+  String get friendCode => isKo ? '내 친구 코드' : 'MY FRIEND CODE';
+  String get friendUidHint => isKo ? '친구 UID 입력' : 'Friend UID';
+  String get addFriend => isKo ? '친구 추가' : 'ADD';
+  String get refresh => isKo ? '새로고침' : 'Refresh';
+  String get refreshLimited => isKo
+      ? '친구 랭킹은 20분에 한 번 갱신됩니다.'
+      : 'Friend rankings refresh every 20 minutes.';
+  String get rankingServerUnavailable => isKo
+      ? '서버 통신 실패: 로컬 데이터만 표시합니다.'
+      : 'Server unavailable: showing local data only.';
   String get achievementConfirm => isKo ? '확인' : 'CLAIM';
   String get upgrades => isKo ? '업그레이드' : 'UPGRADES';
   String get stageLevel => isKo ? '스테이지 레벨' : 'STAGE LEVEL';
@@ -19,8 +34,10 @@ class GameText {
   String get score => isKo ? '점수' : 'SCORE';
   String get defeated => isKo ? '패배' : 'DEFEATED';
   String get finalScore => isKo ? '최종 점수' : 'FINAL SCORE';
+  String get bestScore => isKo ? '최고 점수' : 'BEST SCORE';
   String get finalReport => isKo ? '최종 리포트' : 'FINAL REPORT';
   String get tryAgain => isKo ? '다시 도전' : 'TRY AGAIN';
+  String get shareLink => isKo ? '링크 공유' : 'SHARE LINK';
   String get upgrade => isKo ? '강화 선택' : 'UPGRADE';
   String get rare => isKo ? '레어' : 'RARE';
   String get settings => isKo ? '설정' : 'SETTINGS';

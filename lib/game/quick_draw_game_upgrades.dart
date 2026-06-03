@@ -5,6 +5,9 @@ extension QuickDrawGameUpgrades on QuickDrawGame {
     if (upgradeInputLockTimer > 0) {
       return;
     }
+    if (!canChooseUpgradeOption(option)) {
+      return;
+    }
     playSound(GameSound.uiConfirm);
     switch (option.type) {
       case UpgradeType.bladePower:
@@ -43,6 +46,7 @@ extension QuickDrawGameUpgrades on QuickDrawGame {
     isChoosingUpgrade = false;
     removeOverlayIfRegistered('UpgradeScreen');
     recordAchievementProgress(showToasts: true);
+    onTutorialUpgradeChosen();
     updateChainHighlighting();
   }
 
@@ -161,7 +165,9 @@ extension QuickDrawGameUpgrades on QuickDrawGame {
     updateChainHighlighting();
     resetChain();
 
-    currentUpgradeChoices = recommendedUpgradeChoices();
+    currentUpgradeChoices = _tutorialPhase == TutorialPhase.upgradeChoice
+        ? tutorialUpgradeChoices()
+        : recommendedUpgradeChoices();
     upgradeInputLockTimer = QuickDrawGame.upgradeInputLockDuration;
     addOverlayIfRegistered('UpgradeScreen', priority: 100);
   }
@@ -189,7 +195,9 @@ extension QuickDrawGameUpgrades on QuickDrawGame {
   }
 
   void applyStageDifficulty() {
-    inputDrainMultiplier = 1.0 + (stageLevel - 1) * 0.28;
+    inputDrainMultiplier = QuickDrawGame.inputDrainMultiplierForStage(
+      stageLevel,
+    );
   }
 
   void gainExperienceForRemovedHits(int durability) {
@@ -207,6 +215,7 @@ extension QuickDrawGameUpgrades on QuickDrawGame {
       return;
     }
 
+    beforeCollectTutorialExperience();
     final totalRequiredHits = _pendingExperienceHits;
     _pendingExperienceHits = 0;
     gainExperienceForRemovedHits(totalRequiredHits);
@@ -219,6 +228,7 @@ extension QuickDrawGameUpgrades on QuickDrawGame {
     if (inputTurnsThisStage >= turnsRequiredForNextStage) {
       advanceStageLevel();
     }
+    onTutorialInputTurnCompleted();
   }
 
   @visibleForTesting

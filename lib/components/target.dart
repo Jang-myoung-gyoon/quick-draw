@@ -84,7 +84,16 @@ abstract class FloatingObject extends PositionComponent
 
   void onMissed() {}
 
-  bool shouldRemoveAsMissed() => position.y > game.size.y + 80;
+  bool shouldRemoveAsMissed() =>
+      isOutsideSideOrTopRemovalBounds || position.y > game.size.y + 80;
+
+  bool get isOutsideSideOrTopRemovalBounds {
+    final horizontalMargin = game.size.x / 2;
+    final topMargin = game.size.y / 2;
+    return position.x < -horizontalMargin ||
+        position.x > game.size.x + horizontalMargin ||
+        position.y < -topMargin;
+  }
 
   bool get _shouldUseFreefallSway =>
       game.isPlaying &&
@@ -455,7 +464,8 @@ class LaserTarget extends SlashTarget {
   double get pathHitRadius => laserHitRadius;
 
   @override
-  bool shouldRemoveAsMissed() => position.y > game.size.y + size.y;
+  bool shouldRemoveAsMissed() =>
+      isOutsideSideOrTopRemovalBounds || position.y > game.size.y + size.y;
 
   @override
   void onMissed() {

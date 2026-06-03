@@ -21,7 +21,8 @@ extension QuickDrawGameAchievements on QuickDrawGame {
       UpgradeType.criticalStrike => criticalStrikeLevel > 0,
       UpgradeType.chainLength => maxChainLength > 1,
       UpgradeType.scrollRecovery => scrollEnergyGainMultiplier > 1.0,
-      UpgradeType.energyEfficiency => passiveDrainRate < 0.06435,
+      UpgradeType.energyEfficiency =>
+        passiveDrainRate < QuickDrawGame.initialPassiveDrainRate,
       UpgradeType.focusTime => maxChainTime > 1.5,
       UpgradeType.luck => luckLevel > 0,
       UpgradeType.shadowClone => shadowCloneLevel > 0,
@@ -239,46 +240,32 @@ extension QuickDrawGameAchievements on QuickDrawGame {
 
   Future<void> loadAchievementProgressImpl() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      bestStageLevel = max(
-        bestStageLevel,
-        prefs.getInt(QuickDrawGame._achievementBestStageKey) ?? bestStageLevel,
-      );
-      bestCharacterLevel = max(
-        bestCharacterLevel,
-        prefs.getInt(QuickDrawGame._achievementBestCharacterKey) ??
-            bestCharacterLevel,
-      );
-      bestScore = max(
-        bestScore,
-        prefs.getInt(QuickDrawGame._achievementBestScoreKey) ?? bestScore,
-      );
-      final storedMaxedUpgrades =
-          prefs.getStringList(QuickDrawGame._achievementMaxedUpgradesKey) ??
-          const <String>[];
-      final storedSelectedUpgrades =
-          prefs.getStringList(QuickDrawGame._achievementSelectedUpgradesKey) ??
-          const <String>[];
-      final storedAcknowledgedAchievements =
-          prefs.getStringList(QuickDrawGame._achievementAcknowledgedKey) ??
-          const <String>[];
-      acknowledgedAchievementIds.addAll(storedAcknowledgedAchievements);
-      selectedUpgradeAchievements.addAll(
-        storedSelectedUpgrades
-            .map(upgradeTypeFromName)
-            .whereType<UpgradeType>(),
-      );
-      maxedUpgradeAchievements.addAll(
-        storedMaxedUpgrades.map(upgradeTypeFromName).whereType<UpgradeType>(),
-      );
-      selectedUpgradeAchievements.addAll(maxedUpgradeAchievements);
+      applyProgressSnapshot(await _progressStore.loadLocal());
     } catch (_) {
       // Local persistence should not block the game or tests.
     } finally {
       _achievementProgressLoaded = true;
+      _tutorialProgressLoaded = true;
       achievementRevision.value++;
       recordAchievementProgress();
     }
+  }
+
+  void applyProgressSnapshot(GameProgressSnapshot progress) {
+    bestStageLevel = max(bestStageLevel, progress.bestStageLevel);
+    bestCharacterLevel = max(bestCharacterLevel, progress.bestCharacterLevel);
+    bestScore = max(bestScore, progress.bestScore);
+    _tutorialCompleted = _tutorialCompleted || progress.tutorialCompleted;
+    acknowledgedAchievementIds.addAll(progress.acknowledgedAchievements);
+    selectedUpgradeAchievements.addAll(
+      progress.selectedUpgrades
+          .map(upgradeTypeFromName)
+          .whereType<UpgradeType>(),
+    );
+    maxedUpgradeAchievements.addAll(
+      progress.maxedUpgrades.map(upgradeTypeFromName).whereType<UpgradeType>(),
+    );
+    selectedUpgradeAchievements.addAll(maxedUpgradeAchievements);
   }
 
   UpgradeType? upgradeTypeFromName(String name) {
@@ -300,34 +287,30 @@ extension QuickDrawGameAchievements on QuickDrawGame {
   @visibleForTesting
   Future<void> saveAchievementProgress() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(
-        QuickDrawGame._achievementBestStageKey,
-        bestStageLevel,
-      );
-      await prefs.setInt(
-        QuickDrawGame._achievementBestCharacterKey,
-        bestCharacterLevel,
-      );
-      await prefs.setInt(QuickDrawGame._achievementBestScoreKey, bestScore);
-      await prefs.setStringList(
-        QuickDrawGame._achievementSelectedUpgradesKey,
-        selectedUpgradeAchievements
-            .map((type) => type.name)
-            .toList(growable: false),
-      );
-      await prefs.setStringList(
-        QuickDrawGame._achievementMaxedUpgradesKey,
-        maxedUpgradeAchievements
-            .map((type) => type.name)
-            .toList(growable: false),
-      );
-      await prefs.setStringList(
-        QuickDrawGame._achievementAcknowledgedKey,
-        acknowledgedAchievementIds.toList(growable: false),
-      );
+      await _firebaseSync.saveProgress(currentProgressSnapshot());
     } catch (_) {
       // Local persistence should not block gameplay.
     }
+  }
+
+  GameProgressSnapshot currentProgressSnapshot() {
+    return GameProgressSnapshot(
+      bestStageLevel: bestStageLevel,
+      bestCharacterLevel: bestCharacterLevel,
+      bestScore: bestScore,
+      selectedUpgrades: selectedUpgradeAchievements
+          .map((type) => type.name)
+          .toSet(),
+      maxedUpgrades: maxedUpgradeAchievements.map((type) => type.name).toSet(),
+      acknowledgedAchievements: acknowledgedAchievementIds.toSet(),
+      tutorialCompleted: _tutorialCompleted,
+    );
+  }
+
+  Future<void> signInWithGoogleAndSyncProgress() async {
+    await _firebaseSync.signInWithGoogleAndSync();
+    applyProgressSnapshot(await _progressStore.loadLocal());
+    achievementRevision.value++;
+    recordAchievementProgress();
   }
 }

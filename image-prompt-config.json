@@ -29,7 +29,24 @@
       "reference_mode": "optional",
       "default_reference_image_paths": [],
       "updated_at": "2026-05-31T08:59:27.204Z"
+    },
+    "ultimate_slash_effect": {
+      "description": "Transparent/chroma-key VFX source art for the bonus-triggered ultimate sword slash effect.",
+      "prompt": "Create a standalone 2D game VFX source image, not a character and not an icon. The effect is an ultimate battoujutsu sword slash called Sky Cleave: a wide crescent sword arc with layered teal-white blade energy, coral spark accents, small gold paper-lantern motes, and a brief ink-brush edge. Keep the silhouette readable for mobile gameplay, centered with generous padding, no text, no UI, no logo, no gore, no weapon body, no character. The asset must be suitable for chroma-key video animation and later PNG frame extraction.",
+      "reference_mode": "none",
+      "default_reference_image_paths": [],
+      "updated_at": "2026-06-03T06:44:01.431Z"
     }
   },
-  "updated_at": "2026-05-31T09:14:00.000Z"
+  "sprite_animation_prompts": {
+    "ultimate_slash_effect": {
+      "motion_prompt": "Animate a short 2D casual mobile game ultimate sword slash VFX. Start with a tight bright point at the left-lower side, then sweep rapidly into a broad diagonal crescent arc toward the upper-right, expanding into layered teal-white blade energy with coral sparks and tiny gold paper motes. The slash should bloom at the middle, then dissipate into clean fading particles. Keep the camera locked, the effect centered, no character, no text, no UI, no gore. Use a perfectly flat solid chroma-key background with no shadows, gradients, texture, or lighting variation. Do not let the chroma-key color appear inside the effect.",
+      "prompt": "Create a short 2D sprite animation video from the supplied starting image.\nPreserve the exact character identity, costume, palette, proportions, silhouette, and camera scale from the input image.\nKeep the character fully visible, centered, and readable for frame extraction.\nSprite type motion: Animate a short 2D casual mobile game ultimate sword slash VFX. Start with a tight bright point at the left-lower side, then sweep rapidly into a broad diagonal crescent arc toward the upper-right, expanding into layered teal-white blade energy with coral sparks and tiny gold paper motes. The slash should bloom at the middle, then dissipate into clean fading particles. Keep the camera locked, the effect centered, no character, no text, no UI, no gore. Use a perfectly flat solid chroma-key background with no shadows, gradients, texture, or lighting variation. Do not let the chroma-key color appear inside the effect.\nUse a perfectly flat solid #00ff00 chroma-key background for every frame. Do not use #00ff00 anywhere in the character, prop, clothing, effects, shadows, or antialiasing. No gradients, texture, floor plane, cast shadow, contact shadow, glow halo, particles, or lighting variation in the background.\nNo text, no logo, no UI, no duplicate character, no scene cuts.",
+      "transparent_background": true,
+      "chroma_key_color": "#00ff00",
+      "notes": "Use for the bonus-collected ultimate Sky Cleave slash effect. Extracted frames should be composited in-game over gameplay.",
+      "updated_at": "2026-06-03T06:44:02.772Z"
+    }
+  },
+  "updated_at": "2026-06-03T06:44:02.772Z"
 }

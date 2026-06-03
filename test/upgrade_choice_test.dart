@@ -1,4 +1,4 @@
-import 'package:flame/components.dart';
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quick_draw/components/background.dart';
@@ -761,9 +761,20 @@ void main() {
   );
 
   test('stage level increases freefall energy drain', () {
+    expect(QuickDrawGame.initialPassiveDrainRate, closeTo(0.06435, 0.000001));
+    expect(
+      QuickDrawGame.inputDrainMultiplierForStage(1),
+      closeTo(1.2, 0.000001),
+    );
+    expect(
+      QuickDrawGame.inputDrainMultiplierForStage(20),
+      closeTo(1.0 + (20 - 1) * 0.28, 0.000001),
+    );
+
     final levelOneGame = QuickDrawGame()
       ..isPlaying = true
       ..health = 1.0
+      ..inputDrainMultiplier = QuickDrawGame.inputDrainMultiplierForStage(1)
       ..player = PlayerComponent();
     levelOneGame.update(1.0);
     final levelOneHealth = levelOneGame.health;
@@ -773,13 +784,13 @@ void main() {
       ..health = 1.0
       ..player = PlayerComponent()
       ..stageLevel = 4
-      ..inputDrainMultiplier = 1.0 + (4 - 1) * 0.28;
+      ..inputDrainMultiplier = QuickDrawGame.inputDrainMultiplierForStage(4);
     highStageGame.update(1.0);
 
-    expect(levelOneHealth, closeTo(0.93565, 0.0001));
-    expect(highStageGame.health, closeTo(0.881596, 0.0001));
+    expect(levelOneHealth, closeTo(0.92278, 0.0001));
+    expect(highStageGame.health, closeTo(0.8707581, 0.0001));
     expect(highStageGame.health, lessThan(levelOneHealth));
-    expect(highStageGame.inputDrainMultiplier, closeTo(1.84, 0.001));
+    expect(highStageGame.inputDrainMultiplier, closeTo(2.0084211, 0.001));
   });
 
   test('removed target objects fill experience after slash completion', () {
@@ -1402,6 +1413,172 @@ void main() {
     expect(game.lastRequestedSoundForTest, GameSound.uiConfirm);
   });
 
+  test('first run tutorial fixes target and chain upgrade flow', () async {
+    SharedPreferences.setMockInitialValues({});
+    final game = QuickDrawGame();
+    await game.onLoad();
+    game.onGameResize(Vector2(400, 800));
+    game.processLifecycleEvents();
+    await game.loadAchievementProgress();
+
+    game.startGame();
+    game.processLifecycleEvents();
+
+    expect(game.isTutorialActive, isTrue);
+    expect(game.tutorialPhaseForTest, TutorialPhase.firstSlash);
+    expect(game.children.whereType<SlashTarget>(), hasLength(1));
+    final firstTarget = game.children.whereType<SlashTarget>().single;
+    expect(firstTarget.position, game.tutorialFirstTargetPositionForTest);
+    expect(firstTarget.opacity, 1.0);
+    expect(game.guidedTutorialTapPosition(Vector2.zero()), isNull);
+    expect(
+      game.guidedTutorialTapPosition(game.tutorialFirstTargetPositionForTest),
+      game.tutorialFirstTargetPositionForTest,
+    );
+
+    final positionBeforeWait = firstTarget.position.clone();
+    final healthBeforeWait = game.health;
+    game.update(1);
+
+    expect(firstTarget.position, positionBeforeWait);
+    expect(game.health, healthBeforeWait);
+
+    game.triggerTargetSliced(
+      game.tutorialFirstTargetPositionForTest,
+      target: firstTarget,
+    );
+    game.collectPendingTargetExperience(animate: false);
+
+    expect(game.characterLevel, 2);
+    expect(game.isChoosingUpgrade, isTrue);
+    expect(game.tutorialPhaseForTest, TutorialPhase.upgradeChoice);
+    expect(game.currentUpgradeChoices, hasLength(3));
+    expect(
+      game.currentUpgradeChoices.map((choice) => choice.type),
+      contains(UpgradeType.chainLength),
+    );
+    expect(
+      game.currentUpgradeChoices.where(game.canChooseUpgradeOption),
+      hasLength(1),
+    );
+    expect(
+      game.currentUpgradeChoices.singleWhere(game.canChooseUpgradeOption).type,
+      UpgradeType.chainLength,
+    );
+
+    game.upgradeInputLockTimer = 0.0;
+    game.player.isDashing = true;
+    game.chooseUpgrade(
+      game.currentUpgradeChoices.firstWhere(
+        (choice) => choice.type != UpgradeType.chainLength,
+      ),
+    );
+    expect(game.maxChainLength, 1);
+    expect(game.isChoosingUpgrade, isTrue);
+    expect(game.tutorialPhaseForTest, TutorialPhase.upgradeChoice);
+
+    game.chooseUpgrade(
+      game.currentUpgradeChoices.singleWhere(
+        (choice) => choice.type == UpgradeType.chainLength,
+      ),
+    );
+    game.processLifecycleEvents();
+
+    expect(game.maxChainLength, 2);
+    expect(game.isChoosingUpgrade, isFalse);
+    expect(game.tutorialPhaseForTest, TutorialPhase.chainedSlash);
+    expect(game.children.whereType<SlashTarget>(), isEmpty);
+
+    game.player.isDashing = false;
+    game.prepareTutorialInputTargetsIfReady();
+    game.prepareTutorialInputTargetsIfReady();
+    game.processLifecycleEvents();
+
+    expect(game.children.whereType<SlashTarget>(), hasLength(2));
+    expect(
+      game.children.whereType<SlashTarget>().map((target) => target.position),
+      game.tutorialChainTargetPositionsForTest,
+    );
+    expect(
+      game.children.whereType<SlashTarget>().map((target) => target.opacity),
+      everyElement(1.0),
+    );
+
+    game.addToChain(game.tutorialChainTargetPositionsForTest.first);
+    expect(game.currentChainPoints, hasLength(1));
+    expect(game.isTutorialWaitingForInput, isTrue);
+    game.prepareTutorialInputTargetsIfReady();
+    game.processLifecycleEvents();
+    expect(game.children.whereType<SlashTarget>(), hasLength(2));
+    expect(game.children.whereType<BonusTarget>(), isEmpty);
+
+    game.addToChain(game.tutorialChainTargetPositionsForTest.last);
+    expect(game.currentChainPoints, isEmpty);
+
+    game.player.isDashing = false;
+    game.onInputTurnCompleted();
+    expect(game.isTutorialActive, isTrue);
+    expect(game.tutorialPhaseForTest, TutorialPhase.ultimateSlash);
+    game.processLifecycleEvents();
+    expect(game.children.whereType<SlashTarget>(), isEmpty);
+    expect(game.children.whereType<BonusTarget>(), hasLength(1));
+    expect(game.guidedTutorialTapPosition(Vector2.zero()), isNull);
+    expect(
+      game.guidedTutorialTapPosition(
+        game.tutorialUltimateTapPositionsForTest.first,
+      ),
+      game.tutorialUltimateTapPositionsForTest.first,
+    );
+    expect(game.isTutorialWaitingForInput, isTrue);
+
+    game.addToChain(game.tutorialUltimateTapPositionsForTest.first);
+    expect(game.currentChainPoints, hasLength(1));
+    expect(game.isTutorialWaitingForInput, isTrue);
+    expect(
+      game.guidedTutorialTapPosition(
+        game.tutorialUltimateTapPositionsForTest.last,
+      ),
+      game.tutorialUltimateTapPositionsForTest.last,
+    );
+    expect(
+      game.children.whereType<BonusTarget>().single.position,
+      game.tutorialBonusTargetPositionForTest,
+    );
+    expect(
+      PlayerComponent.movementTouchesBonus(
+        start: game.tutorialUltimateTapPositionsForTest.first,
+        end: game.tutorialUltimateTapPositionsForTest.last,
+        bonusPosition: game.tutorialBonusTargetPositionForTest,
+        radius: 64,
+      ),
+      isTrue,
+    );
+
+    game.addToChain(game.tutorialUltimateTapPositionsForTest.last);
+    expect(game.currentChainPoints, isEmpty);
+    game.processLifecycleEvents();
+
+    game.triggerBonusCollected(game.tutorialBonusTargetPositionForTest);
+    game.onInputTurnCompleted();
+
+    expect(game.isTutorialActive, isFalse);
+    expect(game.tutorialCompletedForTest, isTrue);
+    expect(game.isPlaying, isTrue);
+  });
+
+  test('tutorial runs record half score only for ranking', () {
+    final tutorialGame = QuickDrawGame()
+      ..score = 1001
+      ..resetTutorialStateForNewRun(tutorial: true);
+
+    expect(tutorialGame.score, 1001);
+    expect(tutorialGame.finalScoreForRecord, 500);
+
+    tutorialGame.resetTutorialStateForNewRun(tutorial: false);
+
+    expect(tutorialGame.finalScoreForRecord, 1001);
+  });
+
   testWidgets('upgrade overlay renders three horizontal choices', (
     tester,
   ) async {
@@ -1503,6 +1680,54 @@ void main() {
     );
   });
 
+  testWidgets('tutorial upgrade overlay enables only the chain upgrade', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final game = QuickDrawGame();
+    await game.onLoad();
+    game.onGameResize(Vector2(400, 800));
+    game.processLifecycleEvents();
+    await game.loadAchievementProgress();
+    game.startGame();
+    game.processLifecycleEvents();
+
+    final firstTarget = game.children.whereType<SlashTarget>().single;
+    game.triggerTargetSliced(
+      game.tutorialFirstTargetPositionForTest,
+      target: firstTarget,
+    );
+    game.collectPendingTargetExperience(animate: false);
+    game.upgradeInputLockTimer = 0.0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: UpgradeOverlay(game: game),
+        ),
+      ),
+    );
+
+    final buttons = tester.widgetList<ElevatedButton>(
+      find.byType(ElevatedButton),
+    );
+    expect(buttons.where((button) => button.onPressed != null), hasLength(1));
+    expect(
+      find.text(game.text.upgradeTitle(UpgradeType.chainLength)),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('tutorial-upgrade-focus')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('tutorial-upgrade-disabled-mask')),
+      findsNWidgets(2),
+    );
+  });
+
   testWidgets('start overlay shows game start and achievements buttons', (
     tester,
   ) async {
@@ -1520,7 +1745,7 @@ void main() {
 
     expect(find.text(game.text.gameStart), findsOneWidget);
     expect(find.text(game.text.achievements), findsOneWidget);
-    expect(find.text('HOW TO PLAY'), findsNothing);
+    expect(find.byKey(const ValueKey('home-tutorial-button')), findsOneWidget);
     expect(find.byType(Image), findsNWidgets(2));
     expect(
       find.image(const AssetImage(StartOverlay.homeTitleAsset)),
@@ -1545,6 +1770,37 @@ void main() {
       tester.getCenter(achievementsButton).dx,
       tester.getCenter(startButton).dx,
     );
+  });
+
+  testWidgets('home tutorial button starts a tutorial run', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'quick_draw.tutorial.completed': true,
+    });
+    final game = QuickDrawGame();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 780,
+          height: 1688,
+          child: GameWidget<QuickDrawGame>(
+            game: game,
+            overlayBuilderMap: {
+              'StartScreen': (context, game) => StartOverlay(game: game),
+            },
+            initialActiveOverlays: const ['StartScreen'],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('home-tutorial-button')));
+    await tester.pump();
+
+    expect(game.lastRequestedSoundForTest, GameSound.uiConfirm);
+    expect(game.isTutorialActive, isTrue);
+    expect(game.tutorialPhaseForTest, TutorialPhase.firstSlash);
   });
 
   testWidgets('home achievement button requests the UI select sound', (

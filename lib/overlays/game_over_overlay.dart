@@ -61,12 +61,32 @@ class GameOverOverlay extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _GameOverButton(
+                          label: t.ranking,
+                          onPressed: game.showRanking,
+                          isPrimary: false,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _GameOverButton(
                           label: t.home,
                           onPressed: game.returnHomeFromSettings,
                           isPrimary: false,
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _GameOverButton(
+                      label: t.shareLink,
+                      onPressed: () {
+                        game.playSound(GameSound.uiSelect);
+                        game.shareFriendInviteLink();
+                      },
+                      isPrimary: false,
+                    ),
                   ),
                 ],
               ),
@@ -116,7 +136,7 @@ class GameOverOverlay extends StatelessWidget {
   }
 
   int _energyEfficiencyLevel() {
-    var value = 0.06435;
+    var value = QuickDrawGame.initialPassiveDrainRate;
     var level = 0;
     while (value > game.passiveDrainRate + 0.000001 && level < 99) {
       value = (value * 0.85).clamp(0.02, double.infinity).toDouble();
@@ -186,6 +206,12 @@ class _ScoreSummary extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          _MetricTile(
+            label: t.bestScore,
+            value: '${game.bestScore}',
+            color: const Color(0xFF00FFCC),
           ),
         ],
       ),

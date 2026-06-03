@@ -6,7 +6,11 @@ extension QuickDrawGameInput on QuickDrawGame {
     if (isGameOverPending) return;
 
     if (!player.isDashing) {
-      addToChain(event.localPosition);
+      final tapPosition = guidedTutorialTapPosition(event.localPosition);
+      if (tapPosition == null) {
+        return;
+      }
+      addToChain(tapPosition);
     }
   }
 
@@ -28,6 +32,7 @@ extension QuickDrawGameInput on QuickDrawGame {
 
     // Dynamically highlight targets crossed by this path
     updateChainHighlighting();
+    onTutorialChainPointAdded();
 
     // Start dash immediately if chain limit reached
     if (currentChainPoints.length == maxChainLength) {
@@ -103,7 +108,8 @@ extension QuickDrawGameInput on QuickDrawGame {
   }
 
   // Game Lifecycle Actions
-  void startGame() {
+  void startGame({bool forceTutorial = false}) {
+    final startTutorial = forceTutorial || shouldAutoStartTutorial;
     score = 0;
     combo = 0;
     health = maxHealth;
@@ -116,7 +122,7 @@ extension QuickDrawGameInput on QuickDrawGame {
     inputTurnsThisStage = 0;
     playerAttackPower = 1;
     criticalStrikeLevel = 0;
-    passiveDrainRate = 0.06435;
+    passiveDrainRate = QuickDrawGame.initialPassiveDrainRate;
     scrollEnergyGainMultiplier = 1.0;
     luckLevel = 0;
     rareUpgradeCount = 0;
@@ -128,7 +134,9 @@ extension QuickDrawGameInput on QuickDrawGame {
     chainStrikeUnlocked = false;
     maxChainTime = 1.5;
     maxChainLength = 1;
-    inputDrainMultiplier = 1.0;
+    inputDrainMultiplier = QuickDrawGame.inputDrainMultiplierForStage(
+      stageLevel,
+    );
     currentUpgradeChoices = const [];
     upgradeInputLockTimer = 0.0;
     acquiredRareUpgrades.clear();
@@ -137,6 +145,7 @@ extension QuickDrawGameInput on QuickDrawGame {
     _spawnsSinceLastBonus = 0;
     _gameOverDelayTimer = 0.0;
     totalAltitude = 0.0;
+    resetTutorialStateForNewRun(tutorial: startTutorial);
 
     clearGameplayComponents();
     removeOverlayIfRegistered('StartScreen');
@@ -154,7 +163,11 @@ extension QuickDrawGameInput on QuickDrawGame {
 
     player.resetToBasePosition();
     background?.resetForNewRun();
-    spawnInitialObjects();
+    if (startTutorial) {
+      beginTutorialRun();
+    } else {
+      spawnInitialObjects();
+    }
   }
 
   void beginDelayedGameOver() {
@@ -169,6 +182,7 @@ extension QuickDrawGameInput on QuickDrawGame {
     _gameOverDelayTimer = 0.0;
     isPlaying = false;
     isGameOver = true;
+    _scoreRecordSave = recordFinalScore();
 
     removeOverlayIfRegistered('HUD');
     removeOverlayIfRegistered('UpgradeScreen');
@@ -184,6 +198,10 @@ extension QuickDrawGameInput on QuickDrawGame {
     }
     if (overlays.activeOverlays.contains('AchievementsScreen')) {
       hideAchievements();
+      return true;
+    }
+    if (overlays.activeOverlays.contains('RankingScreen')) {
+      hideRanking();
       return true;
     }
     return false;
@@ -217,6 +235,7 @@ extension QuickDrawGameInput on QuickDrawGame {
     isPlaying = false;
     isGameOver = false;
     isChoosingUpgrade = false;
+    resetTutorialStateForNewRun(tutorial: false);
     currentChainPoints.clear();
     removePathLine();
     stopBackgroundMusic();
@@ -225,6 +244,7 @@ extension QuickDrawGameInput on QuickDrawGame {
     removeOverlayIfRegistered('SettingsScreen');
     removeOverlayIfRegistered('UpgradeScreen');
     removeOverlayIfRegistered('GameOverScreen');
+    removeOverlayIfRegistered('RankingScreen');
     removeOverlayIfRegistered('HUD');
     addOverlayIfRegistered('StartScreen');
     startHomeBgm();
@@ -242,6 +262,60 @@ extension QuickDrawGameInput on QuickDrawGame {
 
   void hideAchievements() {
     overlays.remove('AchievementsScreen');
+  }
+
+  void showRanking() {
+    async_timer.unawaited(showRankingImpl());
+  }
+
+  Future<void> showRankingImpl() async {
+    await _scoreRecordSave;
+    addOverlayIfRegistered('RankingScreen', priority: 130);
+  }
+
+  void hideRanking() {
+    overlays.remove('RankingScreen');
+  }
+
+  Future<FriendRankingSnapshot> loadFriendRankingSnapshot() {
+    return _firebaseSync.loadFriendRankingSnapshot();
+  }
+
+  Future<void> addFriendByUid(String friendUid) {
+    return _firebaseSync.addFriend(friendUid);
+  }
+
+  String? get currentUserIdForRanking => _firebaseSync.currentUser?.uid;
+
+  Future<void> shareFriendInviteLink() async {
+    await _firebaseSync.initialize();
+    final uid = _firebaseSync.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+    await link_share.shareFriendLink(uid);
+  }
+
+  Future<void> recordFinalScore() {
+    final progress = currentProgressSnapshot();
+    final record = ScoreRecord(
+      score: finalScoreForRecord,
+      stageLevel: stageLevel,
+      characterLevel: characterLevel,
+      playedAtMillis: DateTime.now().millisecondsSinceEpoch,
+    );
+    return _firebaseSync.recordScore(
+      record,
+      achievementScore: achievementScoreForRanking(progress),
+    );
+  }
+
+  int achievementScoreForRanking(GameProgressSnapshot progress) {
+    return progress.acknowledgedAchievements.length * 100 +
+        progress.selectedUpgrades.length * 100 +
+        progress.maxedUpgrades.length * 100 +
+        (progress.bestStageLevel - 1).clamp(0, 9999) * 20 +
+        (progress.bestCharacterLevel - 1).clamp(0, 9999) * 20;
   }
 
   void addOverlayIfRegistered(String name, {int priority = 0}) {

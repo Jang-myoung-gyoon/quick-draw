@@ -40,7 +40,7 @@ void main() {
     expect(game.targetFloatingObjectCount, 13);
   });
 
-  test('replacement spawn always stays on the top boundary', () {
+  test('replacement spawn uses top or side boundary for camera direction', () {
     final game = QuickDrawGame();
     game.onGameResize(Vector2(400, 800));
     game.player = PlayerComponent()..position = Vector2(200, 680);
@@ -53,12 +53,19 @@ void main() {
       expect(topSpawn.x, inInclusiveRange(48, 352));
       expect(topSpawn.y, inInclusiveRange(48, 120));
 
-      final horizontalSpawn = game.replacementBoundarySpawnPosition(
+      final rightShiftSpawn = game.replacementBoundarySpawnPosition(
         existingObjects: const [],
         cameraShift: Vector2(10, 0),
       );
-      expect(horizontalSpawn.x, inInclusiveRange(48, 352));
-      expect(horizontalSpawn.y, inInclusiveRange(48, 120));
+      expect(rightShiftSpawn.x, inInclusiveRange(48, 120));
+      expect(rightShiftSpawn.y, inInclusiveRange(48, 800 * 2 / 3));
+
+      final leftShiftSpawn = game.replacementBoundarySpawnPosition(
+        existingObjects: const [],
+        cameraShift: Vector2(-10, 0),
+      );
+      expect(leftShiftSpawn.x, inInclusiveRange(280, 352));
+      expect(leftShiftSpawn.y, inInclusiveRange(48, 800 * 2 / 3));
 
       final lowerSpawn = game.replacementBoundarySpawnPosition(
         existingObjects: const [],
@@ -363,7 +370,7 @@ void main() {
     expect(game.children.whereType<FloatingObject>(), isNotEmpty);
   });
 
-  test('replacement spawns are blocked while the screen scrolls sideways', () {
+  test('replacement spawns during sideways screen scroll', () {
     final game = QuickDrawGame()
       ..isPlaying = true
       ..player = (PlayerComponent()..position = Vector2(200, 680));
@@ -376,7 +383,30 @@ void main() {
     game.maintainFloatingObjectCountForTest();
     game.processLifecycleEvents();
 
-    expect(game.children.whereType<FloatingObject>(), isEmpty);
+    final spawned = game.children.whereType<FloatingObject>().single;
+    expect(spawned.position.x, inInclusiveRange(48, 120));
+    expect(spawned.position.y, lessThanOrEqualTo(game.size.y * 2 / 3));
+  });
+
+  test('side replacement spawns exclude attack objects', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..stageLevel = 6
+      ..player = (PlayerComponent()..position = Vector2(200, 680));
+    game.onGameResize(Vector2(400, 800));
+
+    for (var i = 0; i < 80; i++) {
+      game.setReplacementCameraShiftForTest(Vector2(1, 0));
+      game.processReplacementSpawnAfterScrollForTest(
+        game.replacementSpawnPixelsPerObject,
+      );
+      game.processLifecycleEvents();
+    }
+
+    final spawned = game.children.whereType<FloatingObject>();
+    expect(spawned, isNotEmpty);
+    expect(spawned.whereType<LaserTarget>(), isEmpty);
+    expect(spawned.whereType<ObstacleTarget>(), isEmpty);
   });
 
   test('replacement spawn pixel budget shrinks as object limit increases', () {
@@ -420,4 +450,27 @@ void main() {
       ); // using 33.5 to account for floating point
     },
   );
+
+  test('repulsion ignores objects outside side and top removal bounds', () {
+    final game = QuickDrawGame();
+    game.onGameResize(Vector2(400, 800));
+
+    final sideObjectA = ObstacleTarget()..position = Vector2(-210, 200);
+    final sideObjectB = ObstacleTarget()..position = Vector2(-212, 200);
+    final topObjectA = ObstacleTarget()..position = Vector2(200, -410);
+    final topObjectB = ObstacleTarget()..position = Vector2(202, -410);
+
+    game.add(sideObjectA);
+    game.add(sideObjectB);
+    game.add(topObjectA);
+    game.add(topObjectB);
+    game.processLifecycleEvents();
+
+    game.resolveFloatingObjectRepulsion();
+
+    expect(sideObjectA.position.x, lessThan(-game.size.x / 2));
+    expect(sideObjectB.position.x, lessThan(-game.size.x / 2));
+    expect(topObjectA.position.y, lessThan(-game.size.y / 2));
+    expect(topObjectB.position.y, lessThan(-game.size.y / 2));
+  });
 }
