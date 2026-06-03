@@ -89,7 +89,7 @@ class _FriendsOverlayState extends State<FriendsOverlay> {
                         _message!,
                         style: const TextStyle(
                           color: Color(0xFF00FFCC),
-                          fontSize: 14,
+                          fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -163,6 +163,8 @@ class _FriendsOverlayState extends State<FriendsOverlay> {
       _friendUidController.clear();
       _message = widget.game.text.friendRequestSent;
       _communityLoad = widget.game.loadCommunitySnapshot();
+    } catch (_) {
+      _message = widget.game.text.friendRequestFailed;
     } finally {
       if (mounted) {
         setState(() {
@@ -174,12 +176,23 @@ class _FriendsOverlayState extends State<FriendsOverlay> {
 
   Future<void> _acceptRequest(String uid) async {
     widget.game.playSound(GameSound.uiConfirm);
-    await widget.game.acceptFriendRequest(uid);
-    if (mounted) {
-      setState(() {
-        _message = widget.game.text.friendAccepted;
-        _communityLoad = widget.game.loadCommunitySnapshot();
-      });
+    try {
+      final accepted = await widget.game.acceptFriendRequest(uid);
+      if (mounted) {
+        setState(() {
+          _message = accepted
+              ? widget.game.text.friendAccepted
+              : widget.game.text.friendRequestUnavailable;
+          _communityLoad = widget.game.loadCommunitySnapshot();
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _message = widget.game.text.friendRequestFailed;
+          _communityLoad = widget.game.loadCommunitySnapshot();
+        });
+      }
     }
   }
 }
@@ -215,11 +228,12 @@ class _AddFriendPanel extends StatelessWidget {
               controller: controller,
               minLines: 1,
               maxLines: 1,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white, fontSize: 18),
               decoration: InputDecoration(
                 hintText: t.friendUidHint,
                 hintStyle: TextStyle(
                   color: Colors.white.withValues(alpha: 0.42),
+                  fontSize: 18,
                 ),
                 filled: true,
                 fillColor: Colors.black.withValues(alpha: 0.28),
@@ -238,7 +252,7 @@ class _AddFriendPanel extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           SizedBox(
-            height: 50,
+            height: 56,
             child: ElevatedButton.icon(
               key: const ValueKey('community-add-friend-button'),
               onPressed: isSending ? null : onSubmit,
@@ -258,6 +272,10 @@ class _AddFriendPanel extends StatelessWidget {
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
@@ -291,6 +309,7 @@ class _IncomingRequestRow extends StatelessWidget {
           backgroundColor: const Color(0xFFFFD166),
           foregroundColor: Colors.black,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
         ),
         child: Text(game.text.acceptFriend),
       ),
@@ -329,7 +348,7 @@ class _UserRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -340,7 +359,7 @@ class _UserRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.48),
-                    fontSize: 12,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -365,7 +384,7 @@ class _SectionTitle extends StatelessWidget {
       text,
       style: const TextStyle(
         color: Color(0xFF00FFCC),
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: FontWeight.w900,
         letterSpacing: 1,
       ),
@@ -391,7 +410,7 @@ class _EmptyText extends StatelessWidget {
         text,
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.62),
-          fontSize: 14,
+          fontSize: 18,
           fontWeight: FontWeight.w800,
         ),
       ),

@@ -25,7 +25,7 @@ class GameOverOverlay extends StatelessWidget {
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      t.defeated,
+                      'Game Over',
                       style: TextStyle(
                         fontSize: 78,
                         fontWeight: FontWeight.bold,
@@ -49,45 +49,42 @@ class GameOverOverlay extends StatelessWidget {
                     _UpgradeReportGrid(rows: upgradeRows, closeLabel: t.close),
                   ],
                   const SizedBox(height: 26),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 76,
+                    child: _GameOverButton(
+                      label: t.tryAgain,
+                      onPressed: game.startGame,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: _GameOverButton(
-                          label: t.tryAgain,
-                          onPressed: game.startGame,
-                          isPrimary: true,
-                        ),
+                      _GameOverIconButton(
+                        key: const ValueKey('game-over-ranking-button'),
+                        tooltip: t.ranking,
+                        icon: Icons.leaderboard,
+                        onPressed: game.showRanking,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _GameOverButton(
-                          label: t.ranking,
-                          onPressed: game.showRanking,
-                          isPrimary: false,
-                        ),
+                      const SizedBox(width: 18),
+                      _GameOverIconButton(
+                        key: const ValueKey('game-over-home-button'),
+                        tooltip: t.home,
+                        icon: Icons.home,
+                        onPressed: game.returnHomeFromSettings,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _GameOverButton(
-                          label: t.home,
-                          onPressed: game.returnHomeFromSettings,
-                          isPrimary: false,
-                        ),
+                      const SizedBox(width: 18),
+                      _GameOverIconButton(
+                        key: const ValueKey('game-over-share-button'),
+                        tooltip: t.shareLink,
+                        icon: Icons.ios_share,
+                        onPressed: () {
+                          game.playSound(GameSound.uiSelect);
+                          showFriendInviteDialog(context, game: game);
+                        },
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _GameOverButton(
-                      label: t.shareLink,
-                      onPressed: () {
-                        game.playSound(GameSound.uiSelect);
-                        showFriendInviteDialog(context, game: game);
-                      },
-                      isPrimary: false,
-                    ),
                   ),
                 ],
               ),
@@ -172,6 +169,16 @@ class _ScoreSummary extends StatelessWidget {
       child: Column(
         children: [
           Text(
+            'best ${game.bestScore}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              color: const Color(0xFF00FFCC).withValues(alpha: 0.78),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
             t.finalScore,
             style: TextStyle(
               fontSize: 20,
@@ -207,12 +214,6 @@ class _ScoreSummary extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          _MetricTile(
-            label: t.bestScore,
-            value: '${game.bestScore}',
-            color: const Color(0xFF00FFCC),
           ),
         ],
       ),
@@ -438,39 +439,60 @@ void _showUpgradeReportPopup(
 class _GameOverButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
-  final bool isPrimary;
 
-  const _GameOverButton({
-    required this.label,
-    required this.onPressed,
-    required this.isPrimary,
-  });
+  const _GameOverButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    final color = isPrimary ? const Color(0xFFFF2D55) : const Color(0xFF1F2937);
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: color,
+        backgroundColor: const Color(0xFFFF2D55),
         foregroundColor: Colors.white,
-        shadowColor: isPrimary ? const Color(0xFFFF2D55) : Colors.black,
-        elevation: isPrimary ? 10 : 4,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        side: isPrimary
-            ? null
-            : BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+        shadowColor: const Color(0xFFFF2D55),
+        elevation: 12,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-          fontSize: 27,
+          fontSize: 30,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.4,
         ),
+      ),
+    );
+  }
+}
+
+class _GameOverIconButton extends StatelessWidget {
+  const _GameOverIconButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon),
+      iconSize: 60,
+      color: Colors.white,
+      style: IconButton.styleFrom(
+        backgroundColor: const Color(0xFF1F2937).withValues(alpha: 0.92),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+        fixedSize: const Size(116, 116),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }

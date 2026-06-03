@@ -263,7 +263,16 @@ extension QuickDrawGameInput on QuickDrawGame {
   }
 
   void showCommunity() {
+    async_timer.unawaited(showCommunityImpl());
+  }
+
+  Future<void> showCommunityImpl() async {
     overlays.remove('FriendsScreen');
+    try {
+      await _firebaseSync.initialize();
+    } catch (_) {
+      // Community overlay can still show local controls if Firebase is down.
+    }
     addOverlayIfRegistered('CommunityScreen', priority: 140);
   }
 
@@ -288,7 +297,7 @@ extension QuickDrawGameInput on QuickDrawGame {
     return _firebaseSync.sendFriendRequest(friendUid);
   }
 
-  Future<void> acceptFriendRequest(String requesterUid) {
+  Future<bool> acceptFriendRequest(String requesterUid) {
     return _firebaseSync.acceptFriendRequest(requesterUid);
   }
 
@@ -324,6 +333,23 @@ extension QuickDrawGameInput on QuickDrawGame {
   }
 
   String? get currentUserIdForRanking => _firebaseSync.currentUser?.uid;
+  String? get currentUserDisplayName => _firebaseSync.currentDisplayName;
+  bool get isGoogleUserSignedIn => _firebaseSync.isGoogleUser;
+  bool get isAppleUserSignedIn => _firebaseSync.isAppleUser;
+  bool get hasLinkedCommunityLogin => _firebaseSync.isLinkedLoginUser;
+  bool get isAnonymousCommunityUser => _firebaseSync.isAnonymousUser;
+
+  Future<void> ensureCommunityUser() {
+    return _firebaseSync.initialize();
+  }
+
+  Future<void> signOutCommunityUser() {
+    return _firebaseSync.unlinkLoginProviders();
+  }
+
+  Future<void> updateCommunityDisplayName(String displayName) {
+    return _firebaseSync.updateDisplayName(displayName);
+  }
 
   Future<String?> buildFriendInviteLink() async {
     await _firebaseSync.initialize();

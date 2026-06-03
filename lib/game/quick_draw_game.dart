@@ -133,6 +133,13 @@ class QuickDrawGame extends FlameGame with KeyboardEvents, TapCallbacks {
   GameText get text => GameText(language);
   bool get isGameplayPausedForUi => isChoosingUpgrade || paused;
   bool get isGameOverPending => _gameOverDelayTimer > 0;
+  bool get isUltimateProtectionActive {
+    try {
+      return player.isUltimateProtectionActive;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // Chain variables (now using raw screen coordinates instead of targets)
   final List<Vector2> currentChainPoints = [];

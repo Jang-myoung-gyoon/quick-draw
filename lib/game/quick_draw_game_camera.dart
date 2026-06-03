@@ -36,6 +36,9 @@ extension QuickDrawGameCamera on QuickDrawGame {
     for (final obj in children.whereType<LaserBeamEffect>()) {
       obj.applyCameraShift(delta);
     }
+    for (final obj in children.whereType<UltimateSlashEffect>()) {
+      obj.applyCameraShift(delta);
+    }
 
     // Background scroll boost
     final bg = background;
@@ -43,7 +46,9 @@ extension QuickDrawGameCamera on QuickDrawGame {
       bg.applyScrollBoost(delta);
     }
 
-    maintainFloatingObjectCount();
+    if (!isUltimateProtectionActive) {
+      maintainFloatingObjectCount();
+    }
   }
 
   void rechargeEnergyFromScroll(

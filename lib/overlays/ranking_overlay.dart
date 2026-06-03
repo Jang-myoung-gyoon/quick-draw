@@ -124,7 +124,7 @@ class _RankingOverlayState extends State<RankingOverlay> {
                       t.refreshLimited,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.48),
-                        fontSize: 13,
+                        fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -244,7 +244,7 @@ class _TabButton extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w900),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
         ),
       ),
     );
@@ -272,7 +272,7 @@ class _ServerUnavailableBanner extends StatelessWidget {
         message,
         style: const TextStyle(
           color: Color(0xFFFF6B8A),
-          fontSize: 15,
+          fontSize: 18,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -336,7 +336,7 @@ class _RankingRow extends StatelessWidget {
         : record.achievementScore;
     return Container(
       constraints: const BoxConstraints(minHeight: 78),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0xFF101522).withValues(alpha: 0.86),
         borderRadius: BorderRadius.circular(8),
@@ -377,7 +377,7 @@ class _RankingRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.55),
-                    fontSize: 13,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

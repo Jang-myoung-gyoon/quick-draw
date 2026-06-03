@@ -76,7 +76,7 @@ abstract class FloatingObject extends PositionComponent
       position.x = position.x.clamp(-size.x, game.size.x + size.x);
     }
 
-    if (shouldRemoveAsMissed()) {
+    if (shouldRemoveAsMissed() && !shouldDeferMissedDuringUltimate()) {
       removeFromParent();
       onMissed();
     }
@@ -86,6 +86,9 @@ abstract class FloatingObject extends PositionComponent
 
   bool shouldRemoveAsMissed() =>
       isOutsideSideOrTopRemovalBounds || position.y > game.size.y + 80;
+
+  bool shouldDeferMissedDuringUltimate() =>
+      game.isUltimateProtectionActive && position.y > game.size.y;
 
   bool get isOutsideSideOrTopRemovalBounds {
     final horizontalMargin = game.size.x / 2;

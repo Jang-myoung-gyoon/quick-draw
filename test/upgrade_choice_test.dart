@@ -7,6 +7,7 @@ import 'package:quick_draw/components/player.dart';
 import 'package:quick_draw/components/target.dart';
 import 'package:quick_draw/game/quick_draw_game.dart';
 import 'package:quick_draw/overlays/achievements_overlay.dart';
+import 'package:quick_draw/overlays/community_overlay.dart';
 import 'package:quick_draw/overlays/game_over_overlay.dart';
 import 'package:quick_draw/overlays/hud_overlay.dart';
 import 'package:quick_draw/overlays/settings_overlay.dart';
@@ -129,12 +130,23 @@ void main() {
 
     await tester.pumpWidget(MaterialApp(home: GameOverOverlay(game: game)));
 
-    expect(find.text(game.text.defeated), findsOneWidget);
+    expect(find.text('Game Over'), findsOneWidget);
+    expect(find.text('best ${game.bestScore}'), findsOneWidget);
     expect(find.text('1234'), findsOneWidget);
     expect(find.text('7'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
     expect(find.text(game.text.tryAgain), findsOneWidget);
-    expect(find.text(game.text.home), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('game-over-ranking-button')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('game-over-home-button')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('game-over-share-button')),
+      findsOneWidget,
+    );
+    expect(find.text(game.text.home), findsNothing);
+    expect(find.text(game.text.shareLink), findsNothing);
     expect(find.text('Lv.0'), findsNothing);
     expect(find.text('Lv.2'), findsAtLeastNWidgets(2));
     expect(find.text('Lv.3'), findsOneWidget);
@@ -1200,6 +1212,22 @@ void main() {
     expect(game.shieldCharges, 1);
   });
 
+  test('ultimate protection ignores missed laser attacks', () {
+    final game = QuickDrawGame()
+      ..isPlaying = true
+      ..health = 0.6
+      ..player = (PlayerComponent()..position = Vector2(200, 680));
+
+    game.activateUltimate();
+    final blockedByUltimate = game.triggerLaserTargetMissed(Vector2(160, 820));
+    game.processLifecycleEvents();
+
+    expect(blockedByUltimate, isTrue);
+    expect(game.pendingLaserAttackCountForTest, 0);
+    expect(game.health, game.maxHealth);
+    expect(game.children.whereType<LaserBeamEffect>(), isEmpty);
+  });
+
   test('lightfoot gauge triggers ultimate and resets when filled', () {
     final game = QuickDrawGame()
       ..player = PlayerComponent()
@@ -1255,6 +1283,33 @@ void main() {
     },
   );
 
+  test(
+    'ultimate protection keeps below-screen objects until the cut',
+    () async {
+      final game = QuickDrawGame()
+        ..player = PlayerComponent()
+        ..health = 0.4
+        ..isPlaying = true;
+      game.onGameResize(Vector2(400, 800));
+      game.player.position = Vector2(200, 700);
+      final obstacle = ObstacleTarget()..position = Vector2(120, 900);
+
+      await game.add(obstacle);
+      game.processLifecycleEvents();
+      game.activateUltimate();
+      obstacle.update(1 / 60);
+      game.processLifecycleEvents();
+
+      expect(game.health, game.maxHealth);
+      expect(obstacle.parent, isNotNull);
+
+      game.executeUltimateCut();
+      game.processLifecycleEvents();
+
+      expect(obstacle.parent, isNull);
+    },
+  );
+
   test('bonus object triggers the same vertical slash ultimate', () async {
     final game = QuickDrawGame()
       ..player = PlayerComponent()
@@ -1281,10 +1336,83 @@ void main() {
 
   test('vertical ultimate slash uses a one point five second sprite sheet', () {
     expect(UltimateSlashEffect.frameCount, 24);
-    expect(UltimateSlashEffect.columns, 4);
+    expect(UltimateSlashEffect.columns, 6);
     expect(UltimateSlashEffect.duration, 1.5);
+    expect(UltimateSlashEffect.sizeScale, 0.8);
     expect(UltimateSlashEffect.frameDuration, closeTo(1.5 / 24, 0.0001));
-    expect(UltimateSlashEffect.frameSize, Vector2(360, 640));
+    expect(UltimateSlashEffect.frameSize, Vector2(180, 320));
+  });
+
+  test('ultimate waits half a second after camera pre-scroll before slash', () {
+    expect(PlayerComponent.ultimatePreScrollDuration, 0.5);
+  });
+
+  test('camera movement speeds are thirty percent faster', () {
+    expect(PlayerComponent.ultimatePreScrollDistance, 195);
+    expect(PlayerComponent.cameraFollowSpeed, 3276);
+  });
+
+  test('ultimate pre-scroll moves the player to lower screen center', () {
+    final viewportSize = Vector2(400, 800);
+    final start = Vector2(120, 320);
+
+    expect(
+      PlayerComponent.ultimateAnchorForViewport(viewportSize),
+      Vector2(200, 624),
+    );
+    expect(
+      PlayerComponent.ultimatePreScrollPosition(
+        start: start,
+        viewportSize: viewportSize,
+        elapsed: 0.25,
+      ),
+      Vector2(160, 472),
+    );
+    expect(
+      PlayerComponent.ultimatePreScrollPosition(
+        start: start,
+        viewportSize: viewportSize,
+        elapsed: 0.5,
+      ),
+      Vector2(200, 624),
+    );
+  });
+
+  test('ultimate slash effect sits between slash start and end', () {
+    final game = QuickDrawGame()
+      ..player = PlayerComponent()
+      ..health = 0.35;
+    final start = Vector2(200, 624);
+    final end = Vector2(200, -80);
+
+    expect(
+      UltimateSlashEffect.centerForSegment(start: start, end: end),
+      Vector2(200, 272),
+    );
+    expect(
+      UltimateSlashEffect.heightForSegment(start: start, end: end),
+      closeTo(704, 0.001),
+    );
+    expect(
+      UltimateSlashEffect.angleForSegment(start: start, end: end),
+      closeTo(0, 0.001),
+    );
+
+    game.player.position = start.clone();
+    game.player.startUltimateSequence();
+    game.executeUltimateCut();
+    game.processLifecycleEvents();
+
+    final effects = game.children.whereType<UltimateSlashEffect>();
+    expect(effects, hasLength(1));
+    expect(effects.single.start, start);
+    expect(effects.single.end, end);
+
+    final shift = Vector2(0, 120);
+    effects.single.applyCameraShift(shift);
+    expect(effects.single.start, start + shift);
+    expect(effects.single.end, end + shift);
+    expect(effects.single.position, Vector2(200, 272) + shift);
   });
 
   test('bonus collection does not spawn green slice particles', () {
@@ -1745,6 +1873,10 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey('tutorial-upgrade-choice-hint')),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const ValueKey('tutorial-upgrade-focus')),
       findsOneWidget,
     );
@@ -1880,9 +2012,36 @@ void main() {
     expect(game.isMuted, isFalse);
   });
 
-  test('generated UI sound assets are registered', () {
+  testWidgets('community overlay shows nickname editor and Google login', (
+    tester,
+  ) async {
+    final game = QuickDrawGame();
+
+    await tester.pumpWidget(MaterialApp(home: CommunityOverlay(game: game)));
+
+    expect(
+      find.byKey(const ValueKey('community-display-name-field')),
+      findsOne,
+    );
+    expect(
+      find.byKey(const ValueKey('community-google-login-button')),
+      findsOne,
+    );
+    expect(
+      find.byKey(const ValueKey('community-apple-login-button')),
+      findsOne,
+    );
+    expect(find.text(game.text.googleLogin), findsOne);
+    expect(find.text(game.text.appleLogin), findsOne);
+  });
+
+  test('generated sound assets are registered', () {
     expect(GameSound.uiSelect.assetPath, 'elevenlabs/ui_select.mp3');
     expect(GameSound.uiConfirm.assetPath, 'elevenlabs/ui_confirm.mp3');
+    expect(
+      GameSound.bonusCollect.assetPath,
+      'elevenlabs/bonus_ultimate_slash.mp3',
+    );
     expect(
       GameSound.uiVolumePreview.assetPath,
       'elevenlabs/ui_volume_preview.mp3',

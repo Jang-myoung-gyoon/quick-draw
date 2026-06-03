@@ -1,15 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
-    if (kIsWeb) {
-      return web;
-    }
-    throw UnsupportedError('Firebase is configured for web builds only.');
+    return web;
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
+  static FirebaseOptions get web => FirebaseOptions(
     apiKey: 'AIzaSyDXBFlU3SdAIh0eBxERZJY3SIXwdARTgKM',
     appId: '1:446817919088:web:703fdbce2ae5d5633a94b5',
     messagingSenderId: '446817919088',

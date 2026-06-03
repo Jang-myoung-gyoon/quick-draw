@@ -79,6 +79,9 @@ extension QuickDrawGameShards on QuickDrawGame {
   }
 
   bool triggerObstacleHit(Vector2 hitPos) {
+    if (isUltimateProtectionActive) {
+      return true;
+    }
     resetChain();
     playSound(GameSound.obstacleHit);
 
@@ -103,6 +106,9 @@ extension QuickDrawGameShards on QuickDrawGame {
   }
 
   bool triggerLaserTargetMissed(Vector2 laserOrigin) {
+    if (isUltimateProtectionActive) {
+      return true;
+    }
     if (player.isResolvingAction) {
       _pendingLaserAttackOrigins.add(laserOrigin.clone());
       return false;
@@ -140,6 +146,7 @@ extension QuickDrawGameShards on QuickDrawGame {
     if (player.isPerformingUltimate) {
       return;
     }
+    _pendingLaserAttackOrigins.clear();
     health = maxHealth;
     shakeIntensity = 25.0;
     currentChainPoints.clear();
@@ -165,7 +172,8 @@ extension QuickDrawGameShards on QuickDrawGame {
   void spawnVerticalUltimateSlash() {
     add(
       UltimateSlashEffect(
-        bottomCenter: Vector2(player.position.x, player.position.y + 80.0),
+        start: player.ultimateSlashStart,
+        end: player.ultimateSlashEnd,
       ),
     );
   }

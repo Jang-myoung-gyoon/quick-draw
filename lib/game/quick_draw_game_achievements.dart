@@ -307,8 +307,23 @@ extension QuickDrawGameAchievements on QuickDrawGame {
     );
   }
 
-  Future<void> signInWithGoogleAndSyncProgress() async {
-    await _firebaseSync.signInWithGoogleAndSync();
+  Future<void> signInWithGoogleAndSyncProgress({
+    bool replaceAnonymous = false,
+  }) async {
+    await _firebaseSync.signInWithGoogleAndSync(
+      replaceAnonymous: replaceAnonymous,
+    );
+    applyProgressSnapshot(await _progressStore.loadLocal());
+    achievementRevision.value++;
+    recordAchievementProgress();
+  }
+
+  Future<void> signInWithAppleAndSyncProgress({
+    bool replaceAnonymous = false,
+  }) async {
+    await _firebaseSync.signInWithAppleAndSync(
+      replaceAnonymous: replaceAnonymous,
+    );
     applyProgressSnapshot(await _progressStore.loadLocal());
     achievementRevision.value++;
     recordAchievementProgress();

@@ -55,7 +55,9 @@ class PlayerComponent extends PositionComponent
   // Scroll return state: after dash, smoothly scroll world to bring player back
   bool _isScrollingBack = false;
   bool _isPerformingUltimate = false;
+  bool _ultimateProtectionActive = false;
   bool get isPerformingUltimate => _isPerformingUltimate;
+  bool get isUltimateProtectionActive => _ultimateProtectionActive;
   bool get isResolvingAction =>
       isDashing || _isPerformingUltimate || _isScrollingBack;
   Vector2 _lastMovementDirection = Vector2(0, -1);
@@ -63,11 +65,14 @@ class PlayerComponent extends PositionComponent
   _UltimatePhase _ultimatePhase = _UltimatePhase.preScroll;
   double _ultimateTimer = 0.0;
   bool _ultimateCutTriggered = false;
+  Vector2 _ultimatePreScrollStart = Vector2.zero();
   Vector2 _ultimateSlashStart = Vector2.zero();
   Vector2 _ultimateSlashEnd = Vector2.zero();
-  static const double _ultimatePreScrollDuration = 0.18;
+  static const double _ultimatePreScrollDuration = 0.5;
   static const double _ultimateSlashDuration = 0.34;
-  static const double _ultimatePreScrollDistance = 150.0;
+  static const double _ultimatePreScrollDistance = 195.0;
+  static const double _cameraFollowSpeed = 3276.0;
+  static const double _ultimateScreenYFactor = 0.78;
 
   // Sword trail points
   final List<Vector2> trailPoints = [];
@@ -132,6 +137,37 @@ class PlayerComponent extends PositionComponent
   }
 
   @visibleForTesting
+  static double get ultimatePreScrollDuration => _ultimatePreScrollDuration;
+
+  @visibleForTesting
+  static double get ultimatePreScrollDistance => _ultimatePreScrollDistance;
+
+  @visibleForTesting
+  static double get cameraFollowSpeed => _cameraFollowSpeed;
+
+  @visibleForTesting
+  static double get ultimateScreenYFactor => _ultimateScreenYFactor;
+
+  Vector2 get ultimateSlashStart => _ultimateSlashStart.clone();
+
+  Vector2 get ultimateSlashEnd => _ultimateSlashEnd.clone();
+
+  static Vector2 ultimateAnchorForViewport(Vector2 viewportSize) {
+    return Vector2(viewportSize.x / 2, viewportSize.y * _ultimateScreenYFactor);
+  }
+
+  @visibleForTesting
+  static Vector2 ultimatePreScrollPosition({
+    required Vector2 start,
+    required Vector2 viewportSize,
+    required double elapsed,
+  }) {
+    final progress = (elapsed / _ultimatePreScrollDuration).clamp(0.0, 1.0);
+    final targetPosition = ultimateAnchorForViewport(viewportSize);
+    return start + (targetPosition - start) * progress;
+  }
+
+  @visibleForTesting
   static Size get freefallSpriteDrawSize => _spriteDrawSize;
 
   @visibleForTesting
@@ -155,6 +191,7 @@ class PlayerComponent extends PositionComponent
     isDashing = false;
     _isScrollingBack = false;
     _isPerformingUltimate = false;
+    _ultimateProtectionActive = false;
     _dashWaypoints = [];
     _currentTargetIndex = 0;
     _dashStartPos = Vector2.zero();
@@ -172,6 +209,7 @@ class PlayerComponent extends PositionComponent
     _ultimatePhase = _UltimatePhase.preScroll;
     _ultimateTimer = 0.0;
     _ultimateCutTriggered = false;
+    _ultimatePreScrollStart = Vector2.zero();
     _ultimateSlashStart = Vector2.zero();
     _ultimateSlashEnd = Vector2.zero();
     trailPoints.clear();
@@ -183,6 +221,7 @@ class PlayerComponent extends PositionComponent
     isDashing = false;
     _isScrollingBack = false;
     _isPerformingUltimate = false;
+    _ultimateProtectionActive = false;
     _dashWaypoints = [];
     _currentTargetIndex = 0;
     _scheduledSlashes.clear();
@@ -215,9 +254,11 @@ class PlayerComponent extends PositionComponent
     isDashing = false;
     _isScrollingBack = false;
     _isPerformingUltimate = true;
+    _ultimateProtectionActive = true;
     _ultimatePhase = _UltimatePhase.preScroll;
     _ultimateTimer = 0.0;
     _ultimateCutTriggered = false;
+    _ultimatePreScrollStart = position.clone();
     _ultimateSlashStart = position.clone();
     _ultimateSlashEnd = Vector2(position.x, -80);
     _activeSlashDirection = Vector2(0, -1);
@@ -376,10 +417,17 @@ class PlayerComponent extends PositionComponent
     switch (_ultimatePhase) {
       case _UltimatePhase.preScroll:
         _ultimateTimer += dt;
+        final previousPosition = position.clone();
         final step =
             _ultimatePreScrollDistance *
             min(dt / _ultimatePreScrollDuration, 1.0);
         game.shiftWorldForCamera(Vector2(0, step));
+        position = ultimatePreScrollPosition(
+          start: _ultimatePreScrollStart,
+          viewportSize: game.size,
+          elapsed: _ultimateTimer,
+        );
+        _rememberMovementDirection(position - previousPosition);
         if (_ultimateTimer >= _ultimatePreScrollDuration) {
           _ultimatePhase = _UltimatePhase.slash;
           _ultimateTimer = 0.0;
@@ -541,15 +589,16 @@ class PlayerComponent extends PositionComponent
 
   void _updateScrollBack(double dt) {
     // Move the camera with the player until the player returns to screen center/base height.
-    final double cameraFollowSpeed = 2520.0;
-    final double step = cameraFollowSpeed * dt;
+    final double step = _cameraFollowSpeed * dt;
     final targetPosition = Vector2(game.size.x / 2, _baseY);
     final toTarget = targetPosition - position;
 
     if (toTarget.length <= 1.0) {
       position = targetPosition;
       _isScrollingBack = false;
+      _ultimateProtectionActive = false;
       game.resolvePendingLaserAttacks();
+      game.maintainFloatingObjectCount();
       return;
     }
 

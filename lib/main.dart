@@ -18,11 +18,6 @@ import 'services/firebase_game_progress_sync.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await FirebaseGameProgressSync.instance.initialize();
-  } catch (_) {
-    // Firebase setup should not prevent the local web game from opening.
-  }
   await configureFullscreenSystemUi();
   runApp(const MyGameApp());
 }
@@ -71,6 +66,9 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _game = QuickDrawGame();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      async_timer.unawaited(_initializeFirebaseAccount());
+    });
   }
 
   @override
@@ -180,6 +178,14 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
       ]),
       _preloadAudioAssets(audioAssets),
     ]);
+  }
+
+  Future<void> _initializeFirebaseAccount() async {
+    try {
+      await FirebaseGameProgressSync.instance.initialize();
+    } catch (_) {
+      // Firebase setup should not prevent the local web game from opening.
+    }
   }
 
   Future<void> _preloadFlutterImages(List<String> imageAssets) {

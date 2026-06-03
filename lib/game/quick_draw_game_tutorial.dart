@@ -420,7 +420,8 @@ extension QuickDrawGameTutorial on QuickDrawGame {
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: min(size.x - 64, 460));
 
-    final textOffset = Offset((size.x - textPainter.width) / 2, 42.0);
+    final panelTop = (size.y * 0.62).clamp(42.0, size.y - 180.0);
+    final textOffset = Offset((size.x - textPainter.width) / 2, panelTop);
     final bubbleRect = Rect.fromLTWH(
       textOffset.dx - 16,
       textOffset.dy - 10,

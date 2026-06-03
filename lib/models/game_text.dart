@@ -20,7 +20,22 @@ class GameText {
   String get friendCode => isKo ? '내 친구 코드' : 'MY FRIEND CODE';
   String get community => isKo ? '커뮤니티' : 'COMMUNITY';
   String get myUniqueId => isKo ? '내 고유 ID' : 'MY UNIQUE ID';
+  String get nickname => isKo ? '별명' : 'NICKNAME';
+  String get nicknameHint => isKo ? '별명을 입력하세요' : 'Enter nickname';
+  String get saveNickname => isKo ? '저장' : 'SAVE';
   String get googleLogin => isKo ? 'Google 로그인' : 'Google Sign In';
+  String get googleLink => isKo ? 'Google 연동' : 'Link Google';
+  String get googleLogout => isKo ? '로그아웃' : 'Sign Out';
+  String get appleLogin => isKo ? 'Apple 로그인' : 'Apple Sign In';
+  String get appleLink => isKo ? 'Apple 연동' : 'Link Apple';
+  String get appleLogout => isKo ? '로그아웃' : 'Sign Out';
+  String get replaceAnonymousTitle =>
+      isKo ? '익명 계정을 교체할까요?' : 'Replace anonymous account?';
+  String get replaceAnonymousDescription => isKo
+      ? '지금 사용하는 익명 계정이 로그인 연동되어 있지 않으면 계정이 사라질 수 있습니다. 선택한 로그인 계정으로 대체할까요?'
+      : 'If the current anonymous account is not linked to a sign-in provider, it may be lost. Replace it with the selected sign-in account?';
+  String get cancel => isKo ? '취소' : 'Cancel';
+  String get continueLabel => isKo ? '계속' : 'Continue';
   String get friendList => isKo ? '친구 리스트' : 'FRIENDS';
   String get incomingFriendRequests => isKo ? '받은 친구 요청' : 'INCOMING REQUESTS';
   String get outgoingFriendRequests => isKo ? '보낸 친구 요청' : 'SENT REQUESTS';
@@ -31,6 +46,11 @@ class GameText {
   String get friendRequestSent =>
       isKo ? '친구 요청을 보냈습니다.' : 'Friend request sent.';
   String get friendAccepted => isKo ? '친구 요청을 수락했습니다.' : 'Friend accepted.';
+  String get friendRequestUnavailable => isKo
+      ? '더 이상 유효하지 않은 친구 요청이라 목록에서 제거했습니다.'
+      : 'That friend request is no longer valid and was removed.';
+  String get friendRequestFailed =>
+      isKo ? '친구 요청 처리에 실패했습니다.' : 'Could not process friend request.';
   String get friendInviteTitle => isKo ? '친구 초대 링크' : 'FRIEND INVITE LINK';
   String get friendInviteDescription => isKo
       ? '친구 요청을 자동으로 보내는 URL을 만들 수 있습니다.'
@@ -50,6 +70,9 @@ class GameText {
       : 'Server unavailable: showing local data only.';
   String get achievementConfirm => isKo ? '확인' : 'CLAIM';
   String get upgrades => isKo ? '업그레이드' : 'UPGRADES';
+  String get tutorialUpgradeChoiceHint => isKo
+      ? '랜덤한 업그레이드가 등장하고, 그중 하나를 골라 성장할 수 있어요.'
+      : 'Random upgrades appear, and you can choose one to grow stronger.';
   String get stageLevel => isKo ? '스테이지 레벨' : 'STAGE LEVEL';
   String get characterLevel => isKo ? '캐릭터 레벨' : 'CHARACTER LEVEL';
   String get score => isKo ? '점수' : 'SCORE';

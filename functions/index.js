@@ -88,6 +88,54 @@ exports.recordScore = onCall(callableOptions, async (request) => {
   return {ok: true};
 });
 
+exports.updateDisplayName = onCall(callableOptions, async (request) => {
+  const uid = requireUid(request);
+  const displayName = readRequiredString(
+    request.data?.displayName,
+    "displayName",
+    80,
+  );
+  const now = Date.now();
+
+  await admin.auth().updateUser(uid, {displayName});
+  const [friendUids, incomingSnapshot, outgoingSnapshot] = await Promise.all([
+    loadFriendUids(uid),
+    db.ref(`friendRequests/${uid}/incoming`).get(),
+    db.ref(`friendRequests/${uid}/outgoing`).get(),
+  ]);
+  const updates = {
+    [`rankingRefreshes/${uid}`]: null,
+  };
+  for (const friendUid of friendUids) {
+    if (friendUid === uid) {
+      continue;
+    }
+    updates[`friends/${friendUid}/${uid}/displayName`] = displayName;
+    updates[`friends/${friendUid}/${uid}/updatedAtMillis`] = now;
+    updates[`rankingRefreshes/${friendUid}`] = null;
+  }
+  incomingSnapshot.forEach((child) => {
+    const requesterUid = child.key;
+    if (requesterUid) {
+      updates[`friendRequests/${requesterUid}/outgoing/${uid}/displayName`] = displayName;
+      updates[`friendRequests/${requesterUid}/outgoing/${uid}/updatedAtMillis`] = now;
+    }
+  });
+  outgoingSnapshot.forEach((child) => {
+    const targetUid = child.key;
+    if (targetUid) {
+      updates[`friendRequests/${targetUid}/incoming/${uid}/displayName`] = displayName;
+      updates[`friendRequests/${targetUid}/incoming/${uid}/updatedAtMillis`] = now;
+    }
+  });
+  await Promise.all([
+    db.ref().update(updates),
+    updateRanking(uid, {displayName, updatedAtMillis: now}),
+  ]);
+
+  return {ok: true, displayName};
+});
+
 exports.sendFriendRequest = onCall(callableOptions, async (request) => {
   const uid = requireUid(request);
   const friendUid = readRequiredString(request.data?.friendUid, "friendUid", 128);
@@ -144,7 +192,7 @@ exports.acceptFriendRequest = onCall(callableOptions, async (request) => {
 
   const incoming = await db.ref(`friendRequests/${uid}/incoming/${requesterUid}`).get();
   if (!incoming.exists()) {
-    throw new HttpsError("not-found", "Friend request was not found.");
+    return {ok: false, missingRequest: true};
   }
 
   const [currentUser, requesterUser] = await Promise.all([
@@ -152,7 +200,20 @@ exports.acceptFriendRequest = onCall(callableOptions, async (request) => {
     loadAuthUser(requesterUid),
   ]);
   if (!requesterUser) {
-    throw new HttpsError("not-found", "Requester user was not found.");
+    await db.ref().update({
+      [`friendRequests/${uid}/incoming/${requesterUid}`]: null,
+      [`friendRequests/${requesterUid}/outgoing/${uid}`]: null,
+    });
+    return {ok: false, staleRequest: true};
+  }
+
+  const existingFriend = await db.ref(`friends/${uid}/${requesterUid}`).get();
+  if (existingFriend.exists()) {
+    await db.ref().update({
+      [`friendRequests/${uid}/incoming/${requesterUid}`]: null,
+      [`friendRequests/${requesterUid}/outgoing/${uid}`]: null,
+    });
+    return {ok: true, alreadyFriends: true};
   }
 
   const now = Date.now();

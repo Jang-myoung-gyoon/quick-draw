@@ -8,15 +8,54 @@ class UltimateSlashEffect extends SpriteAnimationComponent
   static const String spriteSheetPath =
       'effects/sky_cleave_rising_straight_slash_sheet.png';
   static const int frameCount = 24;
-  static const int columns = 4;
+  static const int columns = 6;
   static const double duration = 1.5;
   static const double frameDuration = duration / frameCount;
-  static final Vector2 frameSize = Vector2(360, 640);
+  static const double sizeScale = 0.8;
+  static final Vector2 frameSize = Vector2(180, 320);
 
+  final Vector2 start;
+  final Vector2 end;
   double _elapsed = 0.0;
 
-  UltimateSlashEffect({required Vector2 bottomCenter})
-    : super(position: bottomCenter, anchor: Anchor.bottomCenter, priority: 40);
+  UltimateSlashEffect({required Vector2 start, required Vector2 end})
+    : start = start.clone(),
+      end = end.clone(),
+      super(
+        position: centerForSegment(start: start, end: end),
+        anchor: Anchor.center,
+        priority: 40,
+      ) {
+    angle = angleForSegment(start: start, end: end);
+  }
+
+  @visibleForTesting
+  static Vector2 centerForSegment({
+    required Vector2 start,
+    required Vector2 end,
+  }) {
+    return (start + end) / 2;
+  }
+
+  @visibleForTesting
+  static double heightForSegment({
+    required Vector2 start,
+    required Vector2 end,
+  }) {
+    return max(frameSize.y, (end - start).length);
+  }
+
+  @visibleForTesting
+  static double angleForSegment({
+    required Vector2 start,
+    required Vector2 end,
+  }) {
+    final direction = end - start;
+    if (direction.length2 == 0) {
+      return 0.0;
+    }
+    return atan2(direction.y, direction.x) + pi / 2;
+  }
 
   @override
   Future<void> onLoad() async {
@@ -33,9 +72,10 @@ class UltimateSlashEffect extends SpriteAnimationComponent
       ),
     );
 
-    final viewportHeight = game.size.y > 0 ? game.size.y : frameSize.y;
-    final effectHeight = max(viewportHeight, position.y + 160.0);
-    size = Vector2(effectHeight * frameSize.x / frameSize.y, effectHeight);
+    final effectHeight = heightForSegment(start: start, end: end);
+    size =
+        Vector2(effectHeight * frameSize.x / frameSize.y, effectHeight) *
+        sizeScale;
   }
 
   @override
@@ -45,6 +85,12 @@ class UltimateSlashEffect extends SpriteAnimationComponent
     if (_elapsed >= duration) {
       removeFromParent();
     }
+  }
+
+  void applyCameraShift(Vector2 delta) {
+    start.add(delta);
+    end.add(delta);
+    position.add(delta);
   }
 }
 

@@ -63,6 +63,23 @@ class _UpgradeOverlayState extends State<UpgradeOverlay> {
                       color: Colors.white,
                     ),
                   ),
+                  if (widget.game.isTutorialUpgradeChoiceActive) ...[
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Text(
+                        t.tutorialUpgradeChoiceHint,
+                        key: const ValueKey('tutorial-upgrade-choice-hint'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          height: 1.35,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white.withValues(alpha: 0.78),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 28),
                   SizedBox(
                     height: 288,

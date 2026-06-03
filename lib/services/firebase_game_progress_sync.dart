@@ -12,6 +12,12 @@ import 'game_progress_store.dart';
 import 'score_ranking_store.dart';
 import 'score_record.dart';
 
+class AnonymousAccountReplacementRequired implements Exception {
+  const AnonymousAccountReplacementRequired({required this.replace});
+
+  final Future<void> Function() replace;
+}
+
 class FirebaseGameProgressSync {
   FirebaseGameProgressSync({
     FirebaseAuth? auth,
@@ -36,11 +42,17 @@ class FirebaseGameProgressSync {
   bool _initialized = false;
 
   User? get currentUser => _auth?.currentUser;
+  String? get currentDisplayName => currentUser?.displayName;
   bool get isGoogleUser =>
       currentUser?.providerData.any(
         (info) => info.providerId == 'google.com',
       ) ??
       false;
+  bool get isAppleUser =>
+      currentUser?.providerData.any((info) => info.providerId == 'apple.com') ??
+      false;
+  bool get isLinkedLoginUser => isGoogleUser || isAppleUser;
+  bool get isAnonymousUser => currentUser != null && !isLinkedLoginUser;
 
   Future<void> initialize() async {
     if (!kIsWeb || _initialized) {
@@ -58,7 +70,7 @@ class FirebaseGameProgressSync {
       return;
     }
     await _ensureAnonymousDisplayName(user);
-    await _saveAccount(user);
+    await _saveAccountSafely(user);
     _initialized = true;
 
     if (!user.isAnonymous) {
@@ -67,22 +79,134 @@ class FirebaseGameProgressSync {
     await addInviterFromCurrentUri();
   }
 
-  Future<void> signInWithGoogleAndSync() async {
+  Future<void> signInWithGoogleAndSync({bool replaceAnonymous = false}) async {
+    final provider = GoogleAuthProvider()
+      ..setCustomParameters({'prompt': 'select_account'});
+    await _signInOrLinkWithProvider(
+      provider,
+      replaceAnonymous: replaceAnonymous,
+    );
+  }
+
+  Future<void> signInWithAppleAndSync({bool replaceAnonymous = false}) async {
+    final provider = OAuthProvider('apple.com')
+      ..addScope('email')
+      ..addScope('name');
+    await _signInOrLinkWithProvider(
+      provider,
+      replaceAnonymous: replaceAnonymous,
+    );
+  }
+
+  Future<void> _signInOrLinkWithProvider(
+    AuthProvider provider, {
+    required bool replaceAnonymous,
+  }) async {
     await initialize();
     final auth = _auth;
     if (!kIsWeb || auth == null) {
       return;
     }
-
-    final provider = GoogleAuthProvider()
-      ..setCustomParameters({'prompt': 'select_account'});
     final current = auth.currentUser;
+    UserCredential credential;
 
-    if (current != null && current.isAnonymous) {
-      await current.linkWithRedirect(provider);
+    if (current != null && current.isAnonymous && replaceAnonymous) {
+      await _discardAnonymousUser(current, auth);
+      credential = await auth.signInWithPopup(provider);
+    } else if (current != null) {
+      try {
+        credential = await current.linkWithPopup(provider);
+      } on FirebaseAuthException catch (error) {
+        final pendingCredential = error.credential;
+        final isDifferentAccount =
+            error.code == 'credential-already-in-use' ||
+            error.code == 'account-exists-with-different-credential';
+        if (current.isAnonymous &&
+            isDifferentAccount &&
+            pendingCredential != null) {
+          throw AnonymousAccountReplacementRequired(
+            replace: () => _replaceAnonymousWithCredential(
+              current,
+              auth,
+              pendingCredential,
+            ),
+          );
+        }
+        rethrow;
+      }
     } else {
-      await auth.signInWithRedirect(provider);
+      credential = await auth.signInWithPopup(provider);
     }
+    final user = credential.user;
+    if (user != null) {
+      await _preferGoogleDisplayName(user);
+      await _mergeSignedInUserProgress(user);
+      await addInviterFromCurrentUri();
+    }
+  }
+
+  Future<void> _discardAnonymousUser(User user, FirebaseAuth auth) async {
+    try {
+      await user.delete();
+    } on FirebaseAuthException {
+      await auth.signOut();
+    }
+  }
+
+  Future<void> _replaceAnonymousWithCredential(
+    User anonymousUser,
+    FirebaseAuth auth,
+    AuthCredential credential,
+  ) async {
+    await _discardAnonymousUser(anonymousUser, auth);
+    final result = await auth.signInWithCredential(credential);
+    final user = result.user;
+    if (user == null) {
+      return;
+    }
+    await _preferGoogleDisplayName(user);
+    await _mergeSignedInUserProgress(user);
+    await addInviterFromCurrentUri();
+  }
+
+  Future<void> unlinkLoginProviders() async {
+    await initialize();
+    var user = currentUser;
+    if (!kIsWeb || user == null) {
+      return;
+    }
+    for (final providerId in ['google.com', 'apple.com']) {
+      final hasProvider =
+          user?.providerData.any((info) => info.providerId == providerId) ??
+          false;
+      if (!hasProvider) {
+        continue;
+      }
+      try {
+        await user!.unlink(providerId);
+        await user.reload();
+        user = currentUser;
+      } on FirebaseAuthException {
+        // Keep the current signed-in account if unlinking is rejected.
+      }
+    }
+    user = currentUser;
+    if (user != null) {
+      await _ensureAnonymousDisplayName(user);
+      await _saveAccount(user);
+    }
+  }
+
+  Future<void> updateDisplayName(String displayName) async {
+    await initialize();
+    final user = currentUser;
+    final nextName = _normalizeDisplayName(displayName);
+    if (user == null || nextName == null) {
+      return;
+    }
+    await user.updateDisplayName(nextName);
+    await user.reload();
+    await _callFunction('updateDisplayName', {'displayName': nextName});
   }
 
   Future<void> restoreRemoteProgressToLocal() async {
@@ -182,14 +306,17 @@ class FirebaseGameProgressSync {
     await _callFunction('sendFriendRequest', {'friendUid': targetUid});
   }
 
-  Future<void> acceptFriendRequest(String requesterUid) async {
+  Future<bool> acceptFriendRequest(String requesterUid) async {
     await initialize();
     final user = currentUser;
     final targetUid = requesterUid.trim();
     if (user == null || targetUid.isEmpty || targetUid == user.uid) {
-      return;
+      return false;
     }
-    await _callFunction('acceptFriendRequest', {'requesterUid': targetUid});
+    final data = await _callFunction('acceptFriendRequest', {
+      'requesterUid': targetUid,
+    });
+    return data['ok'] == true;
   }
 
   Future<void> addInviterFromCurrentUri() async {
@@ -241,6 +368,14 @@ class FirebaseGameProgressSync {
     );
   }
 
+  Future<void> _saveAccountSafely(User user) async {
+    try {
+      await _saveAccount(user);
+    } catch (_) {
+      // Account persistence is a cache; Firebase Auth remains the source of truth.
+    }
+  }
+
   Future<void> _completeRedirectSignInIfAny() async {
     final auth = _auth;
     if (auth == null) {
@@ -254,9 +389,13 @@ class FirebaseGameProgressSync {
       }
       await _mergeSignedInUserProgress(user);
     } on FirebaseAuthException catch (error) {
-      if (error.code != 'no-auth-event') {
-        rethrow;
+      if (error.code == 'no-auth-event') {
+        return;
       }
+      rethrow;
+    } catch (_) {
+      // Popup sign-in is the active auth flow. A stale or malformed redirect
+      // result must not block creation of the anonymous community account.
     }
   }
 
@@ -270,6 +409,28 @@ class FirebaseGameProgressSync {
     final merged = remote == null ? local : local.merge(remote);
     await _store.saveLocal(merged);
     await _saveRemoteProgressSafely(merged, uid: user.uid);
+  }
+
+  Future<void> _preferGoogleDisplayName(User user) async {
+    if (user.isAnonymous) {
+      return;
+    }
+    for (final info in user.providerData) {
+      if (info.providerId != 'google.com') {
+        continue;
+      }
+      final googleName = _normalizeDisplayName(info.displayName);
+      if (googleName == null || user.displayName == googleName) {
+        return;
+      }
+      try {
+        await user.updateDisplayName(googleName);
+        await user.reload();
+      } catch (_) {
+        // A stale display name should not block Google sign-in.
+      }
+      return;
+    }
   }
 
   Future<void> _ensureAnonymousDisplayName(User user) async {
@@ -315,6 +476,17 @@ class FirebaseGameProgressSync {
     );
     return '${adjectives[hash % adjectives.length]} '
         '${nouns[(hash ~/ adjectives.length) % nouns.length]}';
+  }
+
+  static String? _normalizeDisplayName(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    if (trimmed.length <= 24) {
+      return trimmed;
+    }
+    return trimmed.substring(0, 24);
   }
 
   Future<GameProgressSnapshot?> _loadRemoteProgressSafely(String uid) async {
