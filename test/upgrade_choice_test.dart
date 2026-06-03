@@ -1135,6 +1135,7 @@ void main() {
       ..sfxVolume = 0.5;
 
     expect(game.effectiveSfxVolumeFor(GameSound.targetSlice), 0.4);
+    expect(game.effectiveSfxVolumeFor(GameSound.bonusCollect), 0.52);
     expect(game.effectiveSfxVolumeFor(GameSound.uiSelect), 0.4);
     expect(
       game.effectiveSfxVolumeFor(GameSound.uiConfirm),
@@ -1340,7 +1341,7 @@ void main() {
     expect(UltimateSlashEffect.duration, 1.5);
     expect(UltimateSlashEffect.sizeScale, 0.8);
     expect(UltimateSlashEffect.frameDuration, closeTo(1.5 / 24, 0.0001));
-    expect(UltimateSlashEffect.frameSize, Vector2(180, 320));
+    expect(UltimateSlashEffect.frameSize, Vector2(360, 640));
   });
 
   test('ultimate waits half a second after camera pre-scroll before slash', () {
@@ -1427,7 +1428,7 @@ void main() {
     expect(game.health, game.maxHealth);
   });
 
-  testWidgets('bonus attack sound plays half a second after collection', (
+  testWidgets('bonus attack sound plays one second after collection', (
     tester,
   ) async {
     final game = QuickDrawGame()
@@ -1436,13 +1437,10 @@ void main() {
 
     game.triggerBonusCollected(Vector2(180, 260));
 
-    expect(
-      QuickDrawGame.bonusCollectSoundDelay,
-      const Duration(milliseconds: 500),
-    );
+    expect(QuickDrawGame.bonusCollectSoundDelay, const Duration(seconds: 1));
     expect(game.lastRequestedSoundForTest, isNull);
 
-    await tester.pump(const Duration(milliseconds: 499));
+    await tester.pump(const Duration(milliseconds: 999));
     expect(game.lastRequestedSoundForTest, isNull);
 
     await tester.pump(const Duration(milliseconds: 1));

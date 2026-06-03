@@ -17,6 +17,7 @@ enum GameSound {
   const GameSound(this.assetPath);
 
   double get volumeMultiplier => switch (this) {
+    GameSound.bonusCollect => 1.3,
     GameSound.energyShardAbsorb || GameSound.experienceShardAbsorb => 0.6,
     GameSound.uiConfirm || GameSound.uiVolumePreview => 0.72,
     _ => 1.0,

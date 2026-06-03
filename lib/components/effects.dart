@@ -12,7 +12,7 @@ class UltimateSlashEffect extends SpriteAnimationComponent
   static const double duration = 1.5;
   static const double frameDuration = duration / frameCount;
   static const double sizeScale = 0.8;
-  static final Vector2 frameSize = Vector2(180, 320);
+  static final Vector2 frameSize = Vector2(360, 640);
 
   final Vector2 start;
   final Vector2 end;
