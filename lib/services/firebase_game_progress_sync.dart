@@ -119,9 +119,7 @@ class FirebaseGameProgressSync {
         credential = await current.linkWithPopup(provider);
       } on FirebaseAuthException catch (error) {
         final pendingCredential = error.credential;
-        final isDifferentAccount =
-            error.code == 'credential-already-in-use' ||
-            error.code == 'account-exists-with-different-credential';
+        final isDifferentAccount = _isExistingAccountAuthError(error);
         if (current.isAnonymous && isDifferentAccount) {
           throw AnonymousAccountReplacementRequired(
             replace: pendingCredential == null
@@ -152,6 +150,12 @@ class FirebaseGameProgressSync {
     } on FirebaseAuthException {
       await auth.signOut();
     }
+  }
+
+  static bool _isExistingAccountAuthError(FirebaseAuthException error) {
+    return error.code == 'credential-already-in-use' ||
+        error.code == 'account-exists-with-different-credential' ||
+        error.code == 'email-already-in-use';
   }
 
   Future<void> _replaceAnonymousWithCredential(
