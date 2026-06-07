@@ -334,6 +334,7 @@ extension QuickDrawGameInput on QuickDrawGame {
 
   String? get currentUserIdForRanking => _firebaseSync.currentUser?.uid;
   String? get currentUserDisplayName => _firebaseSync.currentDisplayName;
+  String? get currentUserPhotoUrl => _firebaseSync.currentPhotoUrl;
   bool get isGoogleUserSignedIn => _firebaseSync.isGoogleUser;
   bool get isAppleUserSignedIn => _firebaseSync.isAppleUser;
   bool get hasLinkedCommunityLogin => _firebaseSync.isLinkedLoginUser;

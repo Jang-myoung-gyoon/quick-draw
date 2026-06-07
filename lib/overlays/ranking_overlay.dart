@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../game/quick_draw_game.dart';
 import '../services/friend_ranking.dart';
+import 'profile_avatar.dart';
 
 enum _RankingTab { score, achievement }
 
@@ -334,6 +335,8 @@ class _RankingRow extends StatelessWidget {
     final metricValue = metric == _RankingTab.score
         ? record.score
         : record.achievementScore;
+    final displayName =
+        record.displayName ?? (t.isKo ? '익명 플레이어' : 'Anonymous');
     return Container(
       constraints: const BoxConstraints(minHeight: 78),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -355,13 +358,19 @@ class _RankingRow extends StatelessWidget {
               ),
             ),
           ),
+          ProfileAvatar(
+            displayName: displayName,
+            photoUrl: record.photoUrl,
+            size: 42,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  record.displayName ?? (t.isKo ? '익명 플레이어' : 'Anonymous'),
+                  displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

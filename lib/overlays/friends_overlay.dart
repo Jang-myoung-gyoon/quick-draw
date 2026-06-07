@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../game/quick_draw_game.dart';
 import '../services/friend_community.dart';
+import 'profile_avatar.dart';
 
 class FriendsOverlay extends StatefulWidget {
   const FriendsOverlay({super.key, required this.game});
@@ -326,6 +327,7 @@ class _UserRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = user.displayLabel(isKo: game.text.isKo);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -336,14 +338,18 @@ class _UserRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.person, color: Color(0xFF00FFCC)),
+          ProfileAvatar(
+            displayName: displayName,
+            photoUrl: user.photoUrl,
+            size: 42,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.displayLabel(isKo: game.text.isKo),
+                  displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

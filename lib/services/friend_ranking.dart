@@ -12,11 +12,13 @@ class FriendRankingEntry {
     required this.characterLevel,
     required this.updatedAtMillis,
     this.displayName,
+    this.photoUrl,
     this.isCurrentUser = false,
   });
 
   final String uid;
   final String? displayName;
+  final String? photoUrl;
   final int score;
   final int achievementScore;
   final int stageLevel;
@@ -28,6 +30,7 @@ class FriendRankingEntry {
     return {
       'uid': uid,
       if (displayName != null) 'displayName': displayName,
+      if (photoUrl != null) 'photoUrl': photoUrl,
       'score': score,
       'achievementScore': achievementScore,
       'stageLevel': stageLevel,
@@ -53,6 +56,7 @@ class FriendRankingEntry {
       displayName: json['displayName'] is String
           ? json['displayName'] as String
           : null,
+      photoUrl: json['photoUrl'] is String ? json['photoUrl'] as String : null,
       score: _readInt(json['score']),
       achievementScore: _readInt(json['achievementScore']),
       stageLevel: _readInt(json['stageLevel'], fallback: 1),
@@ -77,6 +81,7 @@ class FriendRankingEntry {
     return other is FriendRankingEntry &&
         uid == other.uid &&
         displayName == other.displayName &&
+        photoUrl == other.photoUrl &&
         score == other.score &&
         achievementScore == other.achievementScore &&
         stageLevel == other.stageLevel &&
@@ -89,6 +94,7 @@ class FriendRankingEntry {
   int get hashCode => Object.hash(
     uid,
     displayName,
+    photoUrl,
     score,
     achievementScore,
     stageLevel,

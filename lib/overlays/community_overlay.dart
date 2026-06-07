@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../game/quick_draw_game.dart';
 import '../services/firebase_game_progress_sync.dart';
+import 'profile_avatar.dart';
 
 enum AuthProviderKind { google, apple }
 
@@ -46,6 +47,7 @@ class _CommunityOverlayState extends State<CommunityOverlay> {
     final t = game.text;
     final uid = game.currentUserIdForRanking ?? '-';
     final displayName = game.currentUserDisplayName ?? '';
+    final photoUrl = game.currentUserPhotoUrl;
     final hasLinkedLogin = game.hasLinkedCommunityLogin;
     if (!_displayNameFocusNode.hasFocus &&
         _displayNameController.text != displayName) {
@@ -121,6 +123,11 @@ class _CommunityOverlayState extends State<CommunityOverlay> {
                                 ],
                               ),
                               const SizedBox(height: 18),
+                              _CurrentProfilePanel(
+                                displayName: displayName,
+                                photoUrl: photoUrl,
+                              ),
+                              const SizedBox(height: 12),
                               _DisplayNamePanel(
                                 label: t.nickname,
                                 hint: t.nicknameHint,
@@ -425,6 +432,48 @@ class _CommunityOverlayState extends State<CommunityOverlay> {
     setState(() {
       _message = widget.game.text.isKo ? '고유 ID를 복사했습니다.' : 'Unique ID copied.';
     });
+  }
+}
+
+class _CurrentProfilePanel extends StatelessWidget {
+  const _CurrentProfilePanel({
+    required this.displayName,
+    required this.photoUrl,
+  });
+
+  final String displayName;
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = displayName.isEmpty ? '?' : displayName;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.26),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          ProfileAvatar(displayName: label, photoUrl: photoUrl, size: 58),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

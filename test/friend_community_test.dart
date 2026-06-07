@@ -6,7 +6,12 @@ void main() {
     final snapshot = FriendCommunitySnapshot.fromJson({
       'uid': 'me',
       'friends': [
-        {'uid': 'friend-a', 'displayName': 'Friend A', 'updatedAtMillis': 100},
+        {
+          'uid': 'friend-a',
+          'displayName': 'Friend A',
+          'photoUrl': 'https://example.com/friend.png',
+          'updatedAtMillis': 100,
+        },
       ],
       'incomingRequests': [
         {'uid': 'requester', 'updatedAtMillis': 200},
@@ -18,6 +23,7 @@ void main() {
 
     expect(snapshot.uid, 'me');
     expect(snapshot.friends.single.displayName, 'Friend A');
+    expect(snapshot.friends.single.photoUrl, 'https://example.com/friend.png');
     expect(snapshot.incomingRequests.single.uid, 'requester');
     expect(snapshot.outgoingRequests.single.updatedAtMillis, 0);
   });

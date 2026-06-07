@@ -34,6 +34,7 @@ exports.saveProgress = onCall(callableOptions, async (request) => {
   const uid = requireUid(request);
   const progress = readProgress(request.data?.progress);
   const displayName = readOptionalString(request.data?.displayName, 80);
+  const photoUrl = readOptionalString(request.data?.photoUrl, 2048);
   const now = Date.now();
 
   await db.ref(`users/${uid}/progress`).set({
@@ -46,6 +47,7 @@ exports.saveProgress = onCall(callableOptions, async (request) => {
     characterLevel: progress.bestCharacterLevel,
     updatedAtMillis: now,
     displayName,
+    photoUrl,
   });
 
   return {ok: true};
@@ -56,6 +58,7 @@ exports.recordScore = onCall(callableOptions, async (request) => {
   const record = readScoreRecord(request.data?.record);
   const displayName =
     readOptionalString(request.data?.displayName, 80) ?? record.playerName;
+  const photoUrl = readOptionalString(request.data?.photoUrl, 2048);
   const achievement = clampInt(request.data?.achievementScore, 0, 999999999);
   const playedAtMillis = record.playedAtMillis || Date.now();
   const scoreRecord = {
@@ -82,6 +85,7 @@ exports.recordScore = onCall(callableOptions, async (request) => {
       characterLevel: record.characterLevel,
       updatedAtMillis: playedAtMillis,
       displayName,
+      photoUrl,
     }),
   ]);
 
@@ -95,6 +99,7 @@ exports.updateDisplayName = onCall(callableOptions, async (request) => {
     "displayName",
     80,
   );
+  const photoUrl = readOptionalString(request.data?.photoUrl, 2048);
   const now = Date.now();
 
   await admin.auth().updateUser(uid, {displayName});
@@ -111,6 +116,7 @@ exports.updateDisplayName = onCall(callableOptions, async (request) => {
       continue;
     }
     updates[`friends/${friendUid}/${uid}/displayName`] = displayName;
+    updates[`friends/${friendUid}/${uid}/photoUrl`] = photoUrl ?? null;
     updates[`friends/${friendUid}/${uid}/updatedAtMillis`] = now;
     updates[`rankingRefreshes/${friendUid}`] = null;
   }
@@ -118,6 +124,7 @@ exports.updateDisplayName = onCall(callableOptions, async (request) => {
     const requesterUid = child.key;
     if (requesterUid) {
       updates[`friendRequests/${requesterUid}/outgoing/${uid}/displayName`] = displayName;
+      updates[`friendRequests/${requesterUid}/outgoing/${uid}/photoUrl`] = photoUrl ?? null;
       updates[`friendRequests/${requesterUid}/outgoing/${uid}/updatedAtMillis`] = now;
     }
   });
@@ -125,12 +132,13 @@ exports.updateDisplayName = onCall(callableOptions, async (request) => {
     const targetUid = child.key;
     if (targetUid) {
       updates[`friendRequests/${targetUid}/incoming/${uid}/displayName`] = displayName;
+      updates[`friendRequests/${targetUid}/incoming/${uid}/photoUrl`] = photoUrl ?? null;
       updates[`friendRequests/${targetUid}/incoming/${uid}/updatedAtMillis`] = now;
     }
   });
   await Promise.all([
     db.ref().update(updates),
-    updateRanking(uid, {displayName, updatedAtMillis: now}),
+    updateRanking(uid, {displayName, photoUrl, updatedAtMillis: now}),
   ]);
 
   return {ok: true, displayName};
@@ -347,7 +355,7 @@ async function updateRanking(uid, next) {
       readInt(next.achievementScore, 0),
     );
 
-    transaction.set(ref, {
+    const nextData = {
       score: nextScore,
       achievementScore: nextAchievement,
       stageLevel: Math.max(readInt(previous.stageLevel, 1), readInt(next.stageLevel, 1)),
@@ -360,7 +368,12 @@ async function updateRanking(uid, next) {
         readInt(next.updatedAtMillis, Date.now()),
       ),
       ...(next.displayName ? {displayName: next.displayName} : {}),
-    }, {merge: true});
+    };
+    if (Object.prototype.hasOwnProperty.call(next, "photoUrl")) {
+      nextData.photoUrl = next.photoUrl ?? null;
+    }
+
+    transaction.set(ref, nextData, {merge: true});
   });
 }
 
@@ -389,6 +402,7 @@ async function loadCommunityUsers(path, maxItems = maxCommunityFriends) {
     users.push({
       uid: readOptionalString(value?.uid, 128) ?? child.key,
       displayName: readOptionalString(value?.displayName, 80),
+      photoUrl: readOptionalString(value?.photoUrl, 2048),
       updatedAtMillis: readInt(value?.updatedAtMillis, 0),
     });
   });
@@ -413,11 +427,23 @@ async function loadAuthUser(uid) {
 }
 
 function communityUserRecord(uid, user, now) {
+  const photoUrl = googlePhotoUrl(user);
   return {
     uid,
     updatedAtMillis: now,
     ...(user.displayName ? {displayName: user.displayName.slice(0, 80)} : {}),
+    ...(photoUrl ? {photoUrl} : {}),
   };
+}
+
+function googlePhotoUrl(user) {
+  const hasGoogleProvider =
+    user.providerData?.some((provider) => provider.providerId === "google.com") ??
+    false;
+  if (!hasGoogleProvider) {
+    return null;
+  }
+  return readOptionalString(user.photoURL, 2048);
 }
 
 async function loadRankingEntries(currentUid, uids) {
@@ -430,6 +456,7 @@ async function loadRankingEntries(currentUid, uids) {
     return {
       uid,
       displayName: readOptionalString(data.displayName, 80),
+      photoUrl: readOptionalString(data.photoUrl, 2048),
       score: readInt(data.score, 0),
       achievementScore: readInt(data.achievementScore, 0),
       stageLevel: readInt(data.stageLevel, 1),

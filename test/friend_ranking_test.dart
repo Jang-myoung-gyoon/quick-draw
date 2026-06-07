@@ -6,6 +6,7 @@ void main() {
     final me = FriendRankingEntry(
       uid: 'me',
       displayName: 'Me',
+      photoUrl: 'https://example.com/me.png',
       score: 900,
       achievementScore: 300,
       stageLevel: 2,
@@ -50,6 +51,7 @@ void main() {
     ]);
     expect(ranking.currentUserScoreRank, 2);
     expect(ranking.currentUserAchievementRank, 2);
+    expect(ranking.scoreRanking[1].photoUrl, 'https://example.com/me.png');
   });
 
   test('friend ranking refresh is blocked until twenty minutes pass', () {

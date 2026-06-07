@@ -43,6 +43,7 @@ class FirebaseGameProgressSync {
 
   User? get currentUser => _auth?.currentUser;
   String? get currentDisplayName => currentUser?.displayName;
+  String? get currentPhotoUrl => _googlePhotoUrl(currentUser);
   bool get isGoogleUser =>
       currentUser?.providerData.any(
         (info) => info.providerId == 'google.com',
@@ -139,7 +140,7 @@ class FirebaseGameProgressSync {
     }
     final user = credential.user;
     if (user != null) {
-      await _preferGoogleDisplayName(user);
+      await _preferGoogleProfile(user);
       await _mergeSignedInUserProgress(user);
       await addInviterFromCurrentUri();
     }
@@ -164,7 +165,7 @@ class FirebaseGameProgressSync {
     if (user == null) {
       return;
     }
-    await _preferGoogleDisplayName(user);
+    await _preferGoogleProfile(user);
     await _mergeSignedInUserProgress(user);
     await addInviterFromCurrentUri();
   }
@@ -206,7 +207,10 @@ class FirebaseGameProgressSync {
     }
     await user.updateDisplayName(nextName);
     await user.reload();
-    await _callFunction('updateDisplayName', {'displayName': nextName});
+    await _callFunction('updateDisplayName', {
+      'displayName': nextName,
+      'photoUrl': currentPhotoUrl,
+    });
   }
 
   Future<void> restoreRemoteProgressToLocal() async {
@@ -358,6 +362,7 @@ class FirebaseGameProgressSync {
     await _callFunction('saveProgress', {
       'progress': progress.toJson(),
       'displayName': user.displayName,
+      'photoUrl': currentPhotoUrl,
     });
   }
 
@@ -411,7 +416,7 @@ class FirebaseGameProgressSync {
     await _saveRemoteProgressSafely(merged, uid: user.uid);
   }
 
-  Future<void> _preferGoogleDisplayName(User user) async {
+  Future<void> _preferGoogleProfile(User user) async {
     if (user.isAnonymous) {
       return;
     }
@@ -420,14 +425,19 @@ class FirebaseGameProgressSync {
         continue;
       }
       final googleName = _normalizeDisplayName(info.displayName);
-      if (googleName == null || user.displayName == googleName) {
-        return;
-      }
+      final googlePhotoUrl = _normalizeUrl(info.photoURL);
       try {
-        await user.updateDisplayName(googleName);
-        await user.reload();
+        if (googleName != null && user.displayName != googleName) {
+          await user.updateDisplayName(googleName);
+        }
+        if (googlePhotoUrl != null && user.photoURL != googlePhotoUrl) {
+          await user.updatePhotoURL(googlePhotoUrl);
+        }
+        if (googleName != null || googlePhotoUrl != null) {
+          await user.reload();
+        }
       } catch (_) {
-        // A stale display name should not block Google sign-in.
+        // A stale Google profile should not block Google sign-in.
       }
       return;
     }
@@ -489,6 +499,24 @@ class FirebaseGameProgressSync {
     return trimmed.substring(0, 24);
   }
 
+  static String? _normalizeUrl(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? _googlePhotoUrl(User? user) {
+    if (user == null) {
+      return null;
+    }
+    final hasGoogleProvider = user.providerData.any(
+      (info) => info.providerId == 'google.com',
+    );
+    if (!hasGoogleProvider) {
+      return null;
+    }
+    return _normalizeUrl(user.photoURL);
+  }
+
   Future<GameProgressSnapshot?> _loadRemoteProgressSafely(String uid) async {
     try {
       return await loadRemoteProgress(uid);
@@ -521,6 +549,7 @@ class FirebaseGameProgressSync {
         'record': record.toJson(),
         'achievementScore': achievementScore,
         'displayName': record.playerName,
+        'photoUrl': currentPhotoUrl,
       });
     } catch (_) {
       // Local score history remains available if remote ranking is unavailable.
@@ -564,6 +593,7 @@ class FirebaseGameProgressSync {
     return FriendRankingEntry(
       uid: user?.uid ?? 'local',
       displayName: user?.displayName,
+      photoUrl: currentPhotoUrl,
       score: bestLocalScore?.score ?? progress.bestScore,
       achievementScore: _achievementScore(progress),
       stageLevel: bestLocalScore?.stageLevel ?? progress.bestStageLevel,

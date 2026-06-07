@@ -10,5 +10,5 @@
       "source.fixAll": "explicit"
     }
   },
-  "cmake.sourceDirectory": "/Users/jangmyeong-gyun/quick-draw/linux"
+  "cmake.configureOnOpen": false
 }

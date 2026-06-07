@@ -36,17 +36,20 @@ class CommunityUser {
   const CommunityUser({
     required this.uid,
     this.displayName,
+    this.photoUrl,
     this.updatedAtMillis = 0,
   });
 
   final String uid;
   final String? displayName;
+  final String? photoUrl;
   final int updatedAtMillis;
 
   factory CommunityUser.fromJson(Map<Object?, Object?> json) {
     return CommunityUser(
       uid: _readString(json['uid']) ?? '',
       displayName: _readString(json['displayName']),
+      photoUrl: _readString(json['photoUrl']),
       updatedAtMillis: _readInt(json['updatedAtMillis']),
     );
   }
