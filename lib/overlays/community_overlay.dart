@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -294,13 +295,10 @@ class _CommunityOverlayState extends State<CommunityOverlay> {
       } else {
         _message = null;
       }
-    } catch (_) {
-      _message = switch (provider) {
-        AuthProviderKind.google =>
-          game.text.isKo ? 'Google 로그인 실패' : 'Google sign-in failed',
-        AuthProviderKind.apple =>
-          game.text.isKo ? 'Apple 로그인 실패' : 'Apple sign-in failed',
-      };
+    } on FirebaseAuthException catch (error) {
+      _message = _authFailureMessage(provider, error);
+    } catch (error) {
+      _message = _genericAuthFailureMessage(provider, error);
     } finally {
       if (mounted) {
         setState(() {
@@ -308,6 +306,41 @@ class _CommunityOverlayState extends State<CommunityOverlay> {
         });
       }
     }
+  }
+
+  String _authFailureMessage(
+    AuthProviderKind provider,
+    FirebaseAuthException error,
+  ) {
+    final prefix = _authFailurePrefix(provider);
+    final detail = [
+      error.code,
+      if (error.message != null && error.message!.trim().isNotEmpty)
+        _truncateAuthError(error.message!.trim()),
+    ].join(': ');
+    return '$prefix ($detail)';
+  }
+
+  String _genericAuthFailureMessage(AuthProviderKind provider, Object error) {
+    final prefix = _authFailurePrefix(provider);
+    return '$prefix (${_truncateAuthError(error.toString())})';
+  }
+
+  String _authFailurePrefix(AuthProviderKind provider) {
+    return switch (provider) {
+      AuthProviderKind.google =>
+        widget.game.text.isKo ? 'Google 로그인 실패' : 'Google sign-in failed',
+      AuthProviderKind.apple =>
+        widget.game.text.isKo ? 'Apple 로그인 실패' : 'Apple sign-in failed',
+    };
+  }
+
+  static String _truncateAuthError(String value) {
+    const maxLength = 180;
+    if (value.length <= maxLength) {
+      return value;
+    }
+    return '${value.substring(0, maxLength)}...';
   }
 
   Future<void> _logout() async {
