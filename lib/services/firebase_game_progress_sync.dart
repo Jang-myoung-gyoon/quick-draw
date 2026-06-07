@@ -122,15 +122,15 @@ class FirebaseGameProgressSync {
         final isDifferentAccount =
             error.code == 'credential-already-in-use' ||
             error.code == 'account-exists-with-different-credential';
-        if (current.isAnonymous &&
-            isDifferentAccount &&
-            pendingCredential != null) {
+        if (current.isAnonymous && isDifferentAccount) {
           throw AnonymousAccountReplacementRequired(
-            replace: () => _replaceAnonymousWithCredential(
-              current,
-              auth,
-              pendingCredential,
-            ),
+            replace: pendingCredential == null
+                ? () => _replaceAnonymousWithProvider(current, auth, provider)
+                : () => _replaceAnonymousWithCredential(
+                    current,
+                    auth,
+                    pendingCredential,
+                  ),
           );
         }
         rethrow;
@@ -161,6 +161,22 @@ class FirebaseGameProgressSync {
   ) async {
     await _discardAnonymousUser(anonymousUser, auth);
     final result = await auth.signInWithCredential(credential);
+    final user = result.user;
+    if (user == null) {
+      return;
+    }
+    await _preferGoogleProfile(user);
+    await _mergeSignedInUserProgress(user);
+    await addInviterFromCurrentUri();
+  }
+
+  Future<void> _replaceAnonymousWithProvider(
+    User anonymousUser,
+    FirebaseAuth auth,
+    AuthProvider provider,
+  ) async {
+    await _discardAnonymousUser(anonymousUser, auth);
+    final result = await auth.signInWithPopup(provider);
     final user = result.user;
     if (user == null) {
       return;
