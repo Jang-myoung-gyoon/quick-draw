@@ -117,6 +117,9 @@ If verification cannot be run, report exactly what was not run and why.
 
 ## Package And Code Generation
 
+- Before every web deployment, increment the app version by at least one patch
+  version (`0.0.1`) and keep `pubspec.yaml` plus the runtime web console version
+  aligned in Flutter `major.minor.patch+build` format.
 - Use `flutter pub add <package>` for dependencies when adding packages.
 - Use `flutter pub add dev:<package>` for development dependencies.
 - Use `dart pub remove <package>` or `flutter pub remove <package>` when removing

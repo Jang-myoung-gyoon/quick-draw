@@ -16,8 +16,11 @@ import 'overlays/start_overlay.dart';
 import 'overlays/upgrade_overlay.dart';
 import 'services/firebase_game_progress_sync.dart';
 
+const String appVersion = '1.0.0+1';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('Quick Draw version $appVersion');
   await configureFullscreenSystemUi();
   runApp(const MyGameApp());
 }

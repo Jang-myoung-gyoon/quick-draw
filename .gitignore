@@ -5,6 +5,7 @@
 *.swp
 .DS_Store
 .env
+secrets/
 .omx/
 .atom/
 .build/
